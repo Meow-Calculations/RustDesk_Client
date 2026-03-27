@@ -147,9 +147,13 @@ impl Encoder {
                     codec: Box::new(hw),
                 }),
                 Err(e) => {
-                    log::error!("new hw encoder failed: {e:?}, clear config");
-                    HwCodecConfig::clear(false, true);
-                    *ENCODE_CODEC_FORMAT.lock().unwrap() = CodecFormat::VP9;
+                    log::error!(
+                        "new hw encoder failed: {:?}, delaying soft-fallback array cleared.",
+                        e
+                    );
+                    // Do not immediately clear all hw configs and fallback to VP9. Wait for video_service to retry.
+                    // HwCodecConfig::clear(false, true);
+                    // *ENCODE_CODEC_FORMAT.lock().unwrap() = CodecFormat::VP9;
                     Err(e)
                 }
             },
@@ -159,9 +163,13 @@ impl Encoder {
                     codec: Box::new(tex),
                 }),
                 Err(e) => {
-                    log::error!("new vram encoder failed: {e:?}, clear config");
-                    HwCodecConfig::clear(true, true);
-                    *ENCODE_CODEC_FORMAT.lock().unwrap() = CodecFormat::VP9;
+                    log::error!(
+                        "new vram encoder failed: {:?}, delaying soft-fallback array cleared.",
+                        e
+                    );
+                    // Do not immediately clear all hw configs and fallback to VP9. Wait for video_service to retry.
+                    // HwCodecConfig::clear(true, true);
+                    // *ENCODE_CODEC_FORMAT.lock().unwrap() = CodecFormat::VP9;
                     Err(e)
                 }
             },

@@ -200,11 +200,23 @@ pub mod rustdesk_idd {
     pub fn plug_in_headless() -> ResultType<()> {
         let mut manager = VIRTUAL_DISPLAY_MANAGER.lock().unwrap();
         manager.prepare_driver()?;
-        let modes = [virtual_display::MonitorMode {
-            width: 1920,
-            height: 1080,
-            sync: 60,
-        }];
+        let modes = [
+            virtual_display::MonitorMode {
+                width: 1920,
+                height: 1080,
+                sync: 60,
+            },
+            virtual_display::MonitorMode {
+                width: 1920,
+                height: 1080,
+                sync: 120,
+            },
+            virtual_display::MonitorMode {
+                width: 1920,
+                height: 1080,
+                sync: 144,
+            },
+        ];
         let device_names = get_device_names().into_iter().collect();
         VirtualDisplayManager::plug_in_monitor(VIRTUAL_DISPLAY_INDEX_FOR_HEADLESS, &modes)?;
         let device_name = get_new_device_name(&device_names);
@@ -267,6 +279,16 @@ pub mod rustdesk_idd {
                     width: 1920,
                     height: 1080,
                     sync: 60,
+                });
+                modes.push(virtual_display::MonitorMode {
+                    width: 1920,
+                    height: 1080,
+                    sync: 120,
+                });
+                modes.push(virtual_display::MonitorMode {
+                    width: 1920,
+                    height: 1080,
+                    sync: 144,
                 });
             }
             match VirtualDisplayManager::plug_in_monitor(idx, modes.as_slice()) {
@@ -350,11 +372,23 @@ pub mod rustdesk_idd {
     }
 
     fn change_resolution(index: u32, w: u32, h: u32) -> bool {
-        let modes = [virtual_display::MonitorMode {
-            width: w,
-            height: h,
-            sync: 60,
-        }];
+        let modes = [
+            virtual_display::MonitorMode {
+                width: w,
+                height: h,
+                sync: 60,
+            },
+            virtual_display::MonitorMode {
+                width: w,
+                height: h,
+                sync: 120,
+            },
+            virtual_display::MonitorMode {
+                width: w,
+                height: h,
+                sync: 144,
+            },
+        ];
         match virtual_display::update_monitor_modes(index, &modes) {
             Ok(_) => true,
             Err(e) => {

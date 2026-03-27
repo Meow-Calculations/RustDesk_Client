@@ -31,7 +31,7 @@ delay:
 pub const FPS: u32 = 30;
 pub const MIN_FPS: u32 = 1;
 pub const MAX_FPS: u32 = 120;
-pub const INIT_FPS: u32 = 15;
+pub const INIT_FPS: u32 = 30;
 
 // Bitrate ratio constants for different quality levels
 const BR_MAX: f32 = 40.0; // 2000 * 2 / 100
@@ -40,7 +40,7 @@ const BR_MIN_HIGH_RESOLUTION: f32 = 0.1; // For high resolution, BR_MIN is still
 const MAX_BR_MULTIPLE: f32 = 1.0;
 
 const HISTORY_DELAY_LEN: usize = 2;
-const ADJUST_RATIO_INTERVAL: usize = 3; // Adjust quality ratio every 3 seconds
+const ADJUST_RATIO_INTERVAL: usize = 1; // Adjust quality ratio every 1 seconds
 const DYNAMIC_SCREEN_THRESHOLD: usize = 2; // Allow increase quality ratio if encode more than 2 times in one second
 const DELAY_THRESHOLD_150MS: u32 = 150; // 150ms is the threshold for good network condition
 
@@ -310,11 +310,11 @@ impl VideoQoS {
             } else {
                 user.delay.increase_fps_count = 0;
             }
-            if user.delay.increase_fps_count >= 3 {
-                // After 3 stable samples, try increasing FPS
-                user.delay.increase_fps_count = 0;
-                fps += 1;
-            }
+        if user.delay.increase_fps_count >= 3 {
+            // After 3 stable samples, try increasing FPS exponentially
+            user.delay.increase_fps_count = 0;
+            fps += ((highest_fps.saturating_sub(fps)) / 2).max(1);
+        }
 
             // Reset quick increase counter if network condition worsens
             if avg_delay > 50 {
@@ -545,8 +545,8 @@ struct RttCalculator {
 }
 
 impl RttCalculator {
-    const WINDOW_SAMPLES: usize = 60; // Keep last 60 samples
-    const MIN_SAMPLES: usize = 10; // Require at least 10 samples
+    const WINDOW_SAMPLES: usize = 30; // Keep last 30 samples
+    const MIN_SAMPLES: usize = 5; // Require at least 5 samples
     const ALPHA: f32 = 0.5; // Smoothing factor for weighted average
 
     /// 使用新样本更新 RTT 估计值
