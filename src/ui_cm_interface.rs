@@ -45,36 +45,34 @@ use std::{
     },
 };
 
-/// Default maximum number of files allowed per transfer request.
-/// Unit: number of files (not bytes).
+/// 每次传输请求允许的默认最大文件数。
+/// 单位：文件数（非字节）。
 #[cfg(not(any(target_os = "ios")))]
 const DEFAULT_MAX_VALIDATED_FILES: usize = 10_000;
 
-/// Maximum number of files allowed in a single file transfer request.
+/// 单次文件传输请求允许的最大文件数。
 ///
-/// This limit prevents excessive I/O and memory usage when dealing with
-/// large directories. It applies to:
-/// - CM-side read jobs (server to client file transfers on Windows)
-/// - `AllFiles` recursive directory listing operations
-/// - Connection-side read jobs (non-Windows platforms)
+/// 此限制防止处理大型目录时产生过多的 I/O 和内存使用。适用于：
+/// - CM 端读取作业（Windows 上服务器到客户端的文件传输）
+/// - `AllFiles` 递归目录列表操作
+/// - 连接端读取作业（非 Windows 平台）
 ///
-/// Unit: number of files (not bytes).
-/// Default: 10,000 files.
-/// Configured via: `OPTION_FILE_TRANSFER_MAX_FILES` ("file-transfer-max-files")
+/// 单位：文件数（非字节）。
+/// 默认：10,000 个文件。
+/// 配置项：`OPTION_FILE_TRANSFER_MAX_FILES` ("file-transfer-max-files")
 #[cfg(not(any(target_os = "ios")))]
 static MAX_VALIDATED_FILES: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
 
-/// Get the maximum number of files allowed per transfer request.
+/// 获取每次传输请求允许的最大文件数。
 ///
-/// Initializes the value from configuration (`OPTION_FILE_TRANSFER_MAX_FILES`)
-/// on first call. Semantics:
-/// - If the option is set to `0`, `DEFAULT_MAX_VALIDATED_FILES` (10,000) is used as a safe upper bound.
-/// - If the option is unset, negative, or non-integer,
-///   `usize::MAX` is used to represent "no limit" for backward compatibility with older versions
-///   that did not enforce any file‑count restriction.
-///   (Note: negative values are not valid for `usize` and will cause parsing to fail.)
+/// 首次调用时从配置（`OPTION_FILE_TRANSFER_MAX_FILES`）初始化值。
+/// 语义：
+/// - 如果选项设为 `0`，使用 `DEFAULT_MAX_VALIDATED_FILES` (10,000) 作为安全上限。
+/// - 如果选项未设置、为负数或非整数，
+///   使用 `usize::MAX` 表示"无限制"，以向后兼容未强制文件数限制的旧版本。
+///   （注意：负值对 `usize` 无效，会导致解析失败。）
 ///
-/// Unit: number of files.
+/// 单位：文件数。
 #[cfg(not(any(target_os = "ios")))]
 #[inline]
 pub fn get_max_validated_files() -> usize {
@@ -95,19 +93,19 @@ pub fn get_max_validated_files() -> usize {
     })
 }
 
-/// Check if file count exceeds the maximum allowed limit.
+/// 检查文件数量是否超过允许的最大限制。
 ///
-/// This check is enforced in:
-/// - `start_read_job()` for CM-side read jobs
-/// - `read_all_files()` for recursive directory listings
-/// - `Connection::on_message()` for connection-side read jobs
+/// 此检查在以下位置强制执行：
+/// - `start_read_job()` 用于 CM 端读取作业
+/// - `read_all_files()` 用于递归目录列表
+/// - `Connection::on_message()` 用于连接端读取作业
 ///
-/// # Arguments
-/// * `file_count` - Number of files in the transfer request
+/// # 参数
+/// * `file_count` - 传输请求中的文件数量
 ///
-/// # Returns
-/// * `Ok(())` if within limit
-/// * `Err(String)` with error message if limit exceeded
+/// # 返回值
+/// * `Ok(())` 如果在限制内
+/// * `Err(String)` 包含错误消息（如果超过限制）
 #[cfg(not(any(target_os = "ios")))]
 pub fn check_file_count_limit(file_count: usize) -> Result<(), String> {
     let max_files = get_max_validated_files();
@@ -164,7 +162,7 @@ struct IpcTaskRunner<T: InvokeUiCM> {
     file_transfer_enabled: bool,
     #[cfg(target_os = "windows")]
     file_transfer_enabled_peer: bool,
-    /// Read jobs for CM-side file reading (server to client transfers)
+    /// CM 端文件读取的读取作业（服务器到客户端传输）
     read_jobs: Vec<fs::TransferJob>,
 }
 
@@ -1160,9 +1158,9 @@ async fn handle_fs(
     }
 }
 
-/// Validates that a file name does not contain path traversal sequences.
-/// This prevents attackers from escaping the base directory by using names like
-/// "../../../etc/passwd" or "..\\..\\Windows\\System32\\malicious.dll".
+/// 验证文件名是否包含路径穿越序列。
+/// 这可以防止攻击者使用如
+/// "../../../etc/passwd" 或 "..\\..\\Windows\\System32\\malicious.dll" 的名称逃出基础目录。
 #[cfg(not(any(target_os = "ios")))]
 fn validate_file_name_no_traversal(name: &str) -> ResultType<()> {
     // Check for null bytes which could cause path truncation in some APIs
@@ -1206,8 +1204,8 @@ fn is_single_file_with_empty_name(files: &[(String, u64)]) -> bool {
     files.len() == 1 && files.first().map_or(false, |f| f.0.is_empty())
 }
 
-/// Validates all file names in a transfer request to prevent path traversal attacks.
-/// Returns an error if any file name contains dangerous path components.
+/// 验证传输请求中的所有文件名，以防止路径穿越攻击。
+/// 如果任何文件名包含危险的路径组件，则返回错误。
 #[cfg(not(any(target_os = "ios")))]
 fn validate_transfer_file_names(files: &[(String, u64)]) -> ResultType<()> {
     if is_single_file_with_empty_name(files) {
@@ -1227,15 +1225,15 @@ fn validate_transfer_file_names(files: &[(String, u64)]) -> ResultType<()> {
     Ok(())
 }
 
-/// Start a read job in CM for file transfer from server to client (Windows only).
+/// 在 CM 中启动读取作业，用于服务器到客户端的文件传输（仅 Windows）。
 ///
-/// This creates a `TransferJob` using `new_read()`, validates it, and sends the
-/// initial file list back to Connection via IPC.
+/// 这会使用 `new_read()` 创建一个 `TransferJob`，验证它，并通过 IPC
+/// 将初始文件列表发送回 Connection。
 ///
-/// NOTE: This is the CM-side equivalent of `create_and_start_read_job()` in
-/// `src/server/connection.rs`. On non-Windows platforms, Connection handles
-/// read jobs directly. Both use `TransferJob::new_read()` with similar logic.
-/// When modifying job creation or validation, ensure both paths stay in sync.
+/// 注意：这是 `src/server/connection.rs` 中 `create_and_start_read_job()` 的 CM 端等价物。
+/// 在非 Windows 平台上，Connection 直接处理读取作业。
+/// 两者都使用 `TransferJob::new_read()` 且逻辑类似。
+/// 修改作业创建或验证时，请确保两条路径保持同步。
 #[cfg(not(any(target_os = "ios")))]
 async fn start_read_job(
     path: String,
@@ -1343,12 +1341,11 @@ async fn start_read_job(
     }
 }
 
-/// Process read jobs periodically, reading file blocks and sending them via IPC.
+/// 定期处理读取作业，读取文件块并通过 IPC 发送。
 ///
-/// NOTE: This is the CM-side equivalent of `handle_read_jobs()` in
-/// `libs/hbb_common/src/fs.rs`. The logic mirrors that implementation
-/// but communicates via IPC instead of direct network stream.
-/// When modifying job processing logic, ensure both implementations stay in sync.
+/// 注意：这是 `libs/hbb_common/src/fs.rs` 中 `handle_read_jobs()` 的 CM 端等价物。
+/// 逻辑镜像了该实现，但通过 IPC 而非直接网络流进行通信。
+/// 修改作业处理逻辑时，请确保两个实现保持同步。
 #[cfg(not(any(target_os = "ios")))]
 async fn handle_read_jobs_tick(
     jobs: &mut Vec<fs::TransferJob>,
@@ -1442,12 +1439,11 @@ async fn handle_read_jobs_tick(
     Ok(())
 }
 
-/// Initialize a read job's data stream and handle digest sending for overwrite detection.
+/// 初始化读取作业的数据流并处理用于覆写检测的摘要发送。
 ///
-/// NOTE: This is the CM-side equivalent of `TransferJob::init_data_stream()` in
-/// `libs/hbb_common/src/fs.rs`. It calls `init_data_stream_for_cm()` and sends
-/// digest via IPC instead of direct network stream.
-/// When modifying initialization or digest logic, ensure both paths stay in sync.
+/// 注意：这是 `libs/hbb_common/src/fs.rs` 中 `TransferJob::init_data_stream()` 的 CM 端等价物。
+/// 它调用 `init_data_stream_for_cm()` 并通过 IPC 而非直接网络流发送摘要。
+/// 修改初始化或摘要逻辑时，请确保两条路径保持同步。
 #[cfg(not(any(target_os = "ios")))]
 async fn init_read_job_for_cm(
     job: &mut fs::TransferJob,
@@ -1809,8 +1805,8 @@ mod tests {
         assert!(super::validate_transfer_file_names(&[("../passwd".into(), 100)]).is_err());
     }
 
-    /// Tests that symlink creation works on this platform.
-    /// This is a helper to verify the test environment supports symlinks.
+    /// 测试符号链接创建在此平台上是否正常工作。
+    /// 这是一个辅助函数，用于验证测试环境是否支持符号链接。
     #[test]
     #[cfg(not(any(target_os = "ios")))]
     fn test_symlink_creation_works() {

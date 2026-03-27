@@ -95,7 +95,7 @@ enum ConnectionState {
     Disconnected,
 }
 
-/// ConnectionRoundState is used to control the reconnecting logic.
+/// ConnectionRoundState 用于控制重连逻辑。
 pub struct ConnectionRoundState {
     round: u32,
     state: ConnectionState,

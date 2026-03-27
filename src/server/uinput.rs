@@ -377,8 +377,8 @@ pub mod service {
         static ref RESOLUTION: Mutex<((i32, i32), (i32, i32))> = Mutex::new(((0, 0), (0, 0)));
     }
 
-    /// Input text on Wayland using layout-independent methods.
-    /// ASCII chars (0x20-0x7E): Portal keysym or uinput fallback
+    /// 在 Wayland 上使用与布局无关的方法输入文本。
+    /// ASCII 字符 (0x20-0x7E): Portal keysym 或 uinput 回退
     /// Non-ASCII chars: skipped — this runs in the --service (root) process where clipboard
     /// operations are unreliable (typically no user session environment).
     /// Non-ASCII input is normally handled by the --server process via input_text_via_clipboard_server.
@@ -440,8 +440,8 @@ pub mod service {
         }
     }
 
-    /// Send a single key down or up event for a Layout character.
-    /// Used by KeyDown/KeyUp to maintain correct press/release semantics.
+    /// 为 Layout 字符发送单个按键按下或释放事件。
+    /// 由 KeyDown/KeyUp 使用以维护正确的按下/释放语义。
     /// `down`: true for key press, false for key release.
     fn input_char_wayland_key_event(chr: char, down: bool, keyboard: &mut VirtualDevice) {
         let keysym = char_to_keysym(chr);
@@ -500,14 +500,14 @@ pub mod service {
         }
     }
 
-    /// Check if character can be input via keysym (ASCII printable with valid keysym).
+    /// 检查字符是否可以通过 keysym 输入（具有有效 keysym 的 ASCII 可打印字符）。
     #[inline]
     pub(crate) fn can_input_via_keysym(c: char, keysym: i32) -> bool {
         // ASCII printable: 0x20 (space) to 0x7E (tilde)
         (c as u32 >= 0x20 && c as u32 <= 0x7E) && keysym != 0
     }
 
-    /// Convert a Unicode character to X11 keysym.
+    /// 将 Unicode 字符转换为 X11 keysym。
     pub(crate) fn char_to_keysym(c: char) -> i32 {
         let codepoint = c as u32;
         if codepoint == 0 {
@@ -909,7 +909,7 @@ pub mod service {
         });
     }
 
-    /// Start uinput service.
+    /// 启动 uinput 服务。
     async fn start_service<F: FnOnce(ipc::Connection) + Copy>(postfix: &str, handler: F) {
         match new_listener(postfix).await {
             Ok(mut incoming) => {
@@ -931,21 +931,21 @@ pub mod service {
         }
     }
 
-    /// Start uinput keyboard service.
+    /// 启动 uinput 键盘服务。
     #[tokio::main(flavor = "current_thread")]
     pub async fn start_service_keyboard() {
         log::info!("start uinput keyboard service");
         start_service(IPC_POSTFIX_KEYBOARD, spawn_keyboard_handler).await;
     }
 
-    /// Start uinput mouse service.
+    /// 启动 uinput 鼠标服务。
     #[tokio::main(flavor = "current_thread")]
     pub async fn start_service_mouse() {
         log::info!("start uinput mouse service");
         start_service(IPC_POSTFIX_MOUSE, spawn_mouse_handler).await;
     }
 
-    /// Start uinput mouse service.
+    /// 启动 uinput 鼠标服务。
     #[tokio::main(flavor = "current_thread")]
     pub async fn start_service_control() {
         log::info!("start uinput control service");
@@ -1183,7 +1183,7 @@ mod mouce {
             Ok(manager)
         }
 
-        /// Write the given event to the uinput file
+        /// 将给定事件写入 uinput 文件
         fn emit(&self, r#type: c_int, code: c_int, value: c_int) -> Result<()> {
             let mut event = InputEvent {
                 time: TimeVal {
@@ -1210,7 +1210,7 @@ mod mouce {
             Ok(())
         }
 
-        /// Syncronize the device
+        /// 同步设备
         fn syncronize(&self) -> Result<()> {
             self.emit(EV_SYN, SYN_REPORT, 0)?;
             // Give uinput some time to update the mouse location,
@@ -1220,7 +1220,7 @@ mod mouce {
             Ok(())
         }
 
-        /// Move the mouse relative to the current position
+        /// 相对于当前位置移动鼠标
         fn move_relative_(&self, x: i32, y: i32) -> Result<()> {
             // uinput does not move the mouse in pixels but uses `units`. I couldn't
             // find information regarding to this uinput `unit`, but according to

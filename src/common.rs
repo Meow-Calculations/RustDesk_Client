@@ -52,7 +52,7 @@ pub enum GrabState {
 
 pub type NotifyMessageBox = fn(String, String, String, String) -> dyn Future<Output = ()>;
 
-// the executable name of the portable version
+// 便携版的可执行文件名
 pub const PORTABLE_APPNAME_RUNTIME_ENV_KEY: &str = "RUSTDESK_APPNAME";
 
 pub const PLATFORM_WINDOWS: &str = "Windows";
@@ -71,18 +71,18 @@ pub mod input {
     pub const MOUSE_TYPE_UP: i32 = 2;
     pub const MOUSE_TYPE_WHEEL: i32 = 3;
     pub const MOUSE_TYPE_TRACKPAD: i32 = 4;
-    /// Relative mouse movement type for gaming/3D applications.
-    /// This type sends delta (dx, dy) values instead of absolute coordinates.
-    /// NOTE: This is only supported by the Flutter client. The Sciter client (deprecated)
-    /// does not support relative mouse mode due to:
-    /// 1. Fixed send_mouse() function signature that doesn't allow type differentiation
-    /// 2. Lack of pointer lock API in Sciter/TIS
-    /// 3. No OS cursor control (hide/show/clip) FFI bindings in Sciter UI
+    /// 用于游戏/3D 应用的相对鼠标移动类型。
+    /// 此类型发送增量 (dx, dy) 值而非绝对坐标。
+    /// 注意：此功能仅由 Flutter 客户端支持。Sciter 客户端（已废弃）
+    /// 不支持相对鼠标模式，原因如下：
+    /// 1. 固定的 send_mouse() 函数签名不允许类型区分
+    /// 2. Sciter/TIS 中缺少指针锁定 API
+    /// 3. Sciter UI 中没有操作系统光标控制（隐藏/显示/裁剪）的 FFI 绑定
     pub const MOUSE_TYPE_MOVE_RELATIVE: i32 = 5;
 
-    /// Mask to extract the mouse event type from the mask field.
-    /// The lower 3 bits contain the event type (MOUSE_TYPE_*), giving a valid range of 0-7.
-    /// Currently defined types use values 0-5; values 6 and 7 are reserved for future use.
+    /// 从 mask 字段中提取鼠标事件类型的掩码。
+    /// 低 3 位包含事件类型 (MOUSE_TYPE_*)，有效范围为 0-7。
+    /// 当前定义的类型使用值 0-5；6 和 7 保留供将来使用。
     pub const MOUSE_TYPE_MASK: i32 = 0x7;
 
     pub const MOUSE_BUTTON_LEFT: i32 = 0x01;
@@ -100,9 +100,9 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    // Is server process, with "--server" args
+    // 是否为服务进程，带有 "--server" 参数
     static ref IS_SERVER: bool = std::env::args().nth(1) == Some("--server".to_owned());
-    // Is server logic running. The server code can invoked to run by the main process if --server is not running.
+    // 服务逻辑是否正在运行。如果 --server 未运行，主进程可以调用运行服务代码。
     static ref SERVER_RUNNING: Arc<RwLock<bool>> = Default::default();
     static ref IS_MAIN: bool = std::env::args().nth(1).map_or(true, |arg| !arg.starts_with("--"));
     static ref IS_CM: bool = std::env::args().nth(1) == Some("--cm".to_owned()) || std::env::args().nth(1) == Some("--cm-no-ui".to_owned());
@@ -188,8 +188,8 @@ pub fn is_support_file_transfer_resume_num(ver: i64) -> bool {
     ver >= hbb_common::get_version_number("1.4.2")
 }
 
-/// Minimum server version required for relative mouse mode support.
-/// This constant must mirror Flutter's `kMinVersionForRelativeMouseMode` in `consts.dart`.
+/// 支持相对鼠标模式所需的最低服务端版本。
+/// 此常量必须与 Flutter 中 `consts.dart` 的 `kMinVersionForRelativeMouseMode` 保持同步。
 const MIN_VERSION_RELATIVE_MOUSE_MODE: &str = "1.4.5";
 
 #[inline]
@@ -202,7 +202,7 @@ pub fn is_support_relative_mouse_mode_num(ver: i64) -> bool {
     ver >= hbb_common::get_version_number(MIN_VERSION_RELATIVE_MOUSE_MODE)
 }
 
-// is server process, with "--server" args
+// 是否为服务进程，带有 "--server" 参数
 #[inline]
 pub fn is_server() -> bool {
     *IS_SERVER
@@ -230,7 +230,7 @@ pub fn is_cm() -> bool {
     *IS_CM
 }
 
-// Is server logic running.
+// 服务逻辑是否正在运行。
 #[inline]
 pub fn is_server_running() -> bool {
     *SERVER_RUNNING.read().unwrap()
@@ -247,7 +247,7 @@ pub fn valid_for_numlock(evt: &KeyEvent) -> bool {
     }
 }
 
-/// Set sound input device.
+/// 设置声音输入设备。
 pub fn set_sound_input(device: String) {
     let prior_device = get_option("audio-input".to_owned());
     if prior_device != device {
@@ -260,7 +260,7 @@ pub fn set_sound_input(device: String) {
     }
 }
 
-/// Get system's default sound input device name.
+/// 获取系统默认声音输入设备名称。
 #[inline]
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn get_default_sound_input() -> Option<String> {
@@ -642,7 +642,7 @@ async fn test_nat_type_() -> ResultType<bool> {
         let mut socket =
             socket_client::connect_tcp_local(server, local_addr, CONNECT_TIMEOUT).await?;
         if i == 0 {
-            // reuse the local addr is required for nat test
+            // 重用本地地址是 NAT 测试所必需的
             local_addr = Some(socket.local_addr());
             Config::set_option(
                 "local-ip-addr".to_owned(),
@@ -735,7 +735,7 @@ pub async fn get_nat_type(ms_timeout: u64) -> i32 {
     crate::ipc::get_nat_type(ms_timeout).await
 }
 
-// used for client to test which server is faster in case stop-servic=Y
+// 用于客户端在 stop-service=Y 情况下测试哪个服务器更快
 #[tokio::main(flavor = "current_thread")]
 async fn test_rendezvous_server_() {
     let servers = Config::get_rendezvous_servers();
@@ -1489,10 +1489,10 @@ pub fn make_empty_dirs_response_to_json(res: &ReadEmptyDirsResponse) -> String {
     serde_json::to_string(&map).unwrap_or("".into())
 }
 
-/// The function to handle the url scheme sent by the system.
+/// 处理系统发送的 URL Scheme 的函数。
 ///
-/// 1. Try to send the url scheme from ipc.
-/// 2. If failed to send the url scheme, we open a new main window to handle this url scheme.
+/// 1. 尝试通过 IPC 发送 URL Scheme。
+/// 2. 如果未能发送 URL Scheme，则打开新的主窗口来处理此 URL Scheme。
 pub fn handle_url_scheme(url: String) {
     #[cfg(not(target_os = "ios"))]
     if let Err(err) = crate::ipc::send_url_scheme(url.clone()) {
@@ -2299,9 +2299,9 @@ pub fn str2color(s: &str, alpha: u8) -> u32 {
     (alpha as u32) << 24 | rgb
 }
 
-/// Check control permission state from a u64 bitmap.
-/// Each permission uses 2 bits: 0 = not set, 1 = disable, 2 = enable, 3 = invalid (treated as not set)
-/// Returns: Some(true) = enabled, Some(false) = disabled, None = not set or invalid
+/// 从 u64 位图中检查控制权限状态。
+/// 每个权限使用 2 位：0 = 未设置，1 = 禁用，2 = 启用，3 = 无效（视为未设置）
+/// 返回值：Some(true) = 已启用，Some(false) = 已禁用，None = 未设置或无效
 pub fn get_control_permission(
     permissions: u64,
     permission: hbb_common::rendezvous_proto::control_permissions::Permission,
@@ -2312,9 +2312,9 @@ pub fn get_control_permission(
         let shift = index * 2;
         let value = (permissions >> shift) & 0b11;
         match value {
-            1 => Some(false), // disable
-            2 => Some(true),  // enable
-            _ => None,        // 0 = not set, 3 = invalid
+            1 => Some(false), // 禁用
+            2 => Some(true),  // 启用
+            _ => None,        // 0 = 未设置, 3 = 无效
         }
     } else {
         None

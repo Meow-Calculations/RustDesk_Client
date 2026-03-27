@@ -248,8 +248,8 @@ pub fn set_local_option(key: String, value: String) {
     LocalConfig::set_option(key.clone(), value);
 }
 
-/// Resolve relative avatar path (e.g. "/avatar/xxx") to absolute URL
-/// by prepending the API server address.
+/// 将相对头像路径（如 "/avatar/xxx"）解析为绝对 URL
+/// 通过在前面添加 API 服务器地址。
 pub fn resolve_avatar_url(avatar: String) -> String {
     let avatar = avatar.trim().to_owned();
     if avatar.starts_with('/') {

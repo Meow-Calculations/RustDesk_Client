@@ -87,7 +87,7 @@ impl RendezvousMediator {
                 allow_err!(super::lan::start_listening());
             });
         }
-        // It is ok to run xdesktop manager when the headless function is not allowed.
+        // 即使无头功能未允许，运行 xdesktop 管理器也是没问题的。
         #[cfg(target_os = "linux")]
         if crate::is_server() {
             crate::platform::linux_desktop_manager::start_xdesktop();
@@ -110,16 +110,16 @@ impl RendezvousMediator {
                     futs.push(tokio::spawn(async move {
                         if let Err(err) = Self::start(server, host).await {
                             let err = format!("rendezvous mediator error: {err}");
-                            // When user reboot, there might be below error, waiting too long
-                            // (CONNECT_TIMEOUT 18s) will make user think there is bug
+                            // 用户重启时可能出现以下错误，等待太久
+                            // （CONNECT_TIMEOUT 18秒）会让用户认为有 Bug
                             if err.contains("10054") || err.contains("11001") {
                                 // No such host is known. (os error 11001)
-                                // An existing connection was forcibly closed by the remote host. (os error 10054): also happens for UDP
+                                // 现有连接被远程主机强制关闭。 (os error 10054): UDP 连接也会发生
                                 *timeout.write().unwrap() = 3000;
                             }
                             log::error!("{err}");
                         }
-                        // SHOULD_EXIT here is to ensure once one exits, the others also exit.
+                        // 这里的 SHOULD_EXIT 是为了确保一旦某个退出，其他的也一起退出。
                         SHOULD_EXIT.store(true, Ordering::SeqCst);
                     }));
                 }
@@ -229,7 +229,7 @@ impl RendezvousMediator {
                     let now = Some(Instant::now());
                     let expired = last_register_resp.map(|x| x.elapsed().as_millis() as i64 >= REG_INTERVAL).unwrap_or(true);
                     let timeout = last_register_sent.map(|x| x.elapsed().as_millis() as i64 >= reg_timeout).unwrap_or(false);
-                    // temporarily disable exponential backoff for android before we add wakeup trigger to force connect in android
+                    // 在添加唤醒触发器强制连接之前，暂时禁用 Android 的指数退避
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
                     if crate::using_public_server() { // only turn on this for public server, may help DDNS self-hosting user.
                         if timeout && reg_timeout < MAX_REG_TIMEOUT {
@@ -243,8 +243,8 @@ impl RendezvousMediator {
                                 Config::update_latency(&host, -1);
                                 old_latency = 0;
                                 if last_dns_check.elapsed().as_millis() as i64 > DNS_INTERVAL {
-                                    // in some case of network reconnect (dial IP network),
-                                    // old UDP socket not work any more after network recover
+                                    // 在某些网络重连情况下（拨号 IP 网络），
+                                    // 网络恢复后旧的 UDP socket 不再工作
                                     if let Some((s, new_addr)) = socket_client::rebind_udp_for(&rz.host).await? {
                                         socket = s;
                                         rz.addr = new_addr.clone();
@@ -354,7 +354,7 @@ impl RendezvousMediator {
         let mut timer = crate::rustdesk_interval(interval(crate::TIMER_OUT));
         let mut last_register_sent: Option<Instant> = None;
         let mut last_recv_msg = Instant::now();
-        // we won't support connecting to multiple rendzvous servers any more, so we can use a global variable here.
+        // 我们不再支持连接多个会合服务器，所以可以在这里使用全局变量。
         Config::set_host_key_confirmed(&rz.host_prefix, false);
         loop {
             let mut update_latency = || {
@@ -369,7 +369,7 @@ impl RendezvousMediator {
                     last_recv_msg = Instant::now();
                     let bytes = res.ok_or_else(|| anyhow::anyhow!("Rendezvous connection is reset by the peer"))??;
                     if bytes.is_empty() {
-                        // After fixing frequent register_pk, for websocket, nginx need to set proxy_read_timeout to more than 60 seconds, eg: 120s
+                        // 修复频繁 register_pk 后，对于 websocket，nginx 需要将 proxy_read_timeout 设置为超过 60 秒，例如：120s
                         // https://serverfault.com/questions/1060525/why-is-my-websocket-connection-gets-closed-in-60-seconds
                         conn.send_bytes(bytes::Bytes::new()).await?;
                         continue; // heartbeat
@@ -399,7 +399,7 @@ impl RendezvousMediator {
 
     pub async fn start(server: ServerPtr, host: String) -> ResultType<()> {
         log::info!("start rendezvous mediator of {}", host);
-        //If the investment agent type is http or https, then tcp forwarding is enabled.
+        // 如果投资代理类型是 http 或 https，则启用 tcp 转发。
         if (cfg!(debug_assertions) && option_env!("TEST_TCP").is_some())
             || Config::is_proxy()
             || use_ws()
@@ -415,7 +415,7 @@ impl RendezvousMediator {
         let addr = AddrMangle::decode(&rr.socket_addr);
         let last = *LAST_RELAY_MSG.lock().await;
         *LAST_RELAY_MSG.lock().await = (addr, Instant::now());
-        // skip duplicate relay request messages
+        // 跳过重复的中继请求消息
         if last.0 == addr && last.1.elapsed().as_millis() < 100 {
             return Ok(());
         }
@@ -486,7 +486,7 @@ impl RendezvousMediator {
         let addr = AddrMangle::decode(&fla.socket_addr);
         let last = *LAST_MSG.lock().await;
         *LAST_MSG.lock().await = (addr, Instant::now());
-        // skip duplicate punch hole messages
+        // 跳过重复的打洞消息
         if last.0 == addr && last.1.elapsed().as_millis() < 100 {
             return Ok(());
         }
@@ -543,7 +543,7 @@ impl RendezvousMediator {
         log::debug!("Handle intranet from {:?}", peer_addr);
         let mut socket = connect_tcp(&*self.host, CONNECT_TIMEOUT).await?;
         let local_addr = socket.local_addr();
-        // we saw invalid local_addr while using proxy, local_addr.ip() == "::1"
+        // 我们在使用代理时发现 local_addr 无效，local_addr.ip() == "::1"
         let local_addr: SocketAddr =
             format!("{}:{}", local_addr.ip(), local_addr.port()).parse()?;
         let mut msg_out = Message::new();
@@ -573,7 +573,7 @@ impl RendezvousMediator {
         let mut peer_addr = AddrMangle::decode(&ph.socket_addr);
         let last = *LAST_MSG.lock().await;
         *LAST_MSG.lock().await = (peer_addr, Instant::now());
-        // skip duplicate punch hole messages
+        // 跳过重复的打洞消息
         if last.0 == peer_addr && last.1.elapsed().as_millis() < 100 {
             return Ok(());
         }
@@ -591,7 +591,7 @@ impl RendezvousMediator {
             .await;
         }
         let relay_server = self.get_relay_server(ph.relay_server);
-        // for ensure, websocket go relay directly
+        // 为确保起见，websocket 直接走中继
         if ph.nat_type.enum_value() == Ok(NatType::SYMMETRIC)
             || Config::get_nat_type() == NatType::SYMMETRIC as i32
             || relay
@@ -632,8 +632,8 @@ impl RendezvousMediator {
         let mut socket = {
             let socket = connect_tcp(&*self.host, CONNECT_TIMEOUT).await?;
             let local_addr = socket.local_addr();
-            // key important here for punch hole to tell my gateway incoming peer is safe.
-            // it can not be async here, because local_addr can not be reused, we must close the connection before use it again.
+            // 这个 key 对于打洞很关键，用于告诉我的网关传入的对等方是安全的。
+            // 这里不能是异步的，因为 local_addr 不能被重用，我们必须在再次使用之前关闭连接。
             allow_err!(socket_client::connect_tcp_local(peer_addr, Some(local_addr), 30).await);
             socket
         };
@@ -780,7 +780,7 @@ async fn direct_server(server: ServerPtr) {
                     );
                 }
                 Err(err) => {
-                    // to-do: pass to ui
+                    // 待办：传递给 UI
                     log::error!(
                         "Failed to start direct server on port: {}, error: {}",
                         port,
@@ -907,12 +907,12 @@ async fn udp_nat_listen(
     Ok(())
 }
 
-// When config is not yet synced from root, register_pk may have already been sent with a new generated pk.
-// After config sync completes, the pk may change. This struct detects pk changes and triggers
-// a re-registration by setting key_confirmed to false.
-// NOTE:
-// This only corrects PK registration for the current ID. If root uses a non-default mac-generated ID,
-// this does not resolve the multi-ID issue by itself.
+// 当配置尚未从 root 同步时，register_pk 可能已经使用新生成的 pk 发送。
+// 配置同步完成后，pk 可能会变化。此结构体检测 pk 变化并通过
+// 将 key_confirmed 设为 false 来触发重新注册。
+// 注意：
+// 这只修正当前 ID 的 PK 注册。如果 root 使用非默认的 mac 生成 ID，
+// 这本身不能解决多 ID 问题。
 pub struct CheckIfResendPk {
     pk: Option<Vec<u8>>,
 }

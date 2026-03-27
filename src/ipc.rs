@@ -41,7 +41,7 @@ use hbb_common::{
 
 use crate::{common::is_server, privacy_mode, rendezvous_mediator::RendezvousMediator};
 
-// IPC actions here.
+// IPC 操作定义。
 pub const IPC_ACTION_CLOSE: &str = "close";
 pub static EXIT_RECV_CLOSE: AtomicBool = AtomicBool::new(true);
 
@@ -116,8 +116,8 @@ pub enum FS {
         path: String,
         new_name: String,
     },
-    // CM-side file reading operations (Windows only)
-    // These enable Connection Manager to read files and stream them back to Connection
+    // CM 端文件读取操作（仅 Windows）
+    // 这些操作使连接管理器能够读取文件并将其流式传回给 Connection
     ReadFile {
         path: String,
         id: i32,
@@ -300,56 +300,56 @@ pub enum Data {
     #[cfg(windows)]
     ControlledSessionCount(usize),
     CmErr(String),
-    // CM-side file reading responses (Windows only)
-    // These are sent from CM back to Connection when CM handles file reading
-    /// Response to ReadFile: contains initial file list or error
+    // CM 端文件读取响应（仅 Windows）
+    // 当 CM 处理文件读取时，这些消息从 CM 发送回 Connection
+    /// ReadFile 的响应：包含初始文件列表或错误
     ReadJobInitResult {
         id: i32,
         file_num: i32,
         include_hidden: bool,
         conn_id: i32,
-        /// Serialized protobuf bytes of FileDirectory, or error string
+        /// FileDirectory 的序列化 protobuf 字节，或错误字符串
         result: Result<Vec<u8>, String>,
     },
-    /// File data block read by CM.
+    /// CM 读取的文件数据块。
     ///
-    /// The actual data is sent separately via `send_raw()` after this message to avoid
-    /// JSON encoding overhead for large binary data. This mirrors the `WriteBlock` pattern.
+    /// 实际数据通过 `send_raw()` 在此消息之后单独发送，以避免大型二进制数据的
+    /// JSON 编码开销。这与 `WriteBlock` 模式相同。
     ///
-    /// **Protocol:**
-    /// - Sender: `send(FileBlockFromCM{...})` then `send_raw(data)`
-    /// - Receiver: `next()` returns `FileBlockFromCM`, then `next_raw()` returns data bytes
+    /// **协议：**
+    /// - 发送方：`send(FileBlockFromCM{...})` 然后 `send_raw(data)`
+    /// - 接收方：`next()` 返回 `FileBlockFromCM`，然后 `next_raw()` 返回数据字节
     ///
-    /// **Note on empty data (e.g., empty files):**
-    /// Empty data is supported. The IPC connection uses `BytesCodec` with `raw=false` (default),
-    /// which prefixes each frame with a length header. So `send_raw(Bytes::new())` sends a
-    /// 1-byte frame (length=0), and `next_raw()` correctly returns an empty `BytesMut`.
-    /// See `libs/hbb_common/src/bytes_codec.rs` test `test_codec2` for verification.
+    /// **关于空数据（例如空文件）的注意事项：**
+    /// 支持空数据。IPC 连接使用 `BytesCodec`，`raw=false`（默认），
+    /// 它会在每个帧前加长度头。因此 `send_raw(Bytes::new())` 发送一个
+    /// 1 字节帧（length=0），`next_raw()` 正确返回空的 `BytesMut`。
+    /// 参见 `libs/hbb_common/src/bytes_codec.rs` 测试 `test_codec2` 进行验证。
     FileBlockFromCM {
         id: i32,
         file_num: i32,
-        /// Data is sent separately via `send_raw()` to avoid JSON encoding overhead.
-        /// This field is skipped during serialization; sender must call `send_raw()` after sending.
-        /// Receiver must call `next_raw()` and populate this field manually.
+        /// 数据通过 `send_raw()` 单独发送以避免 JSON 编码开销。
+        /// 此字段在序列化时被跳过；发送方必须在发送后调用 `send_raw()`。
+        /// 接收方必须调用 `next_raw()` 并手动填充此字段。
         #[serde(skip)]
         data: bytes::Bytes,
         compressed: bool,
         conn_id: i32,
     },
-    /// File read completed successfully
+    /// 文件读取成功完成
     FileReadDone {
         id: i32,
         file_num: i32,
         conn_id: i32,
     },
-    /// File read failed with error
+    /// 文件读取失败并返回错误
     FileReadError {
         id: i32,
         file_num: i32,
         err: String,
         conn_id: i32,
     },
-    /// Digest info from CM for overwrite detection
+    /// 来自 CM 的摘要信息，用于覆写检测
     FileDigestFromCM {
         id: i32,
         file_num: i32,
@@ -358,18 +358,18 @@ pub enum Data {
         is_resume: bool,
         conn_id: i32,
     },
-    /// Response to ReadAllFiles: recursive directory listing
+    /// ReadAllFiles 的响应：递归目录列表
     AllFilesResult {
         id: i32,
         conn_id: i32,
         path: String,
-        /// Serialized protobuf bytes of FileDirectory, or error string
+        /// FileDirectory 的序列化 protobuf 字节，或错误字符串
         result: Result<Vec<u8>, String>,
     },
     CheckHwcodec,
     #[cfg(feature = "flutter")]
     VideoConnCount(Option<usize>),
-    // Although the key is not necessary, it is used to avoid hardcoding the key.
+    // 虽然 key 不是必需的，但使用它可以避免硬编码 key。
     WaylandScreencastRestoreToken((String, String)),
     HwCodecConfig(Option<String>),
     RemoveTrustedDevices(Vec<Bytes>),
@@ -487,9 +487,9 @@ impl CheckIfRestart {
 }
 impl Drop for CheckIfRestart {
     fn drop(&mut self) {
-        // If https proxy is used, we need to restart rendezvous mediator.
-        // No need to check if https proxy is used, because this option does not change frequently
-        // and restarting mediator is safe even https proxy is not used.
+        // 如果使用了 HTTPS 代理，我们需要重启会合服务中介。
+        // 不需要检查是否使用了 HTTPS 代理，因为这个选项不会频繁变化，
+        // 而且即使未使用 HTTPS 代理，重启中介也是安全的。
         let allow_insecure_tls_fallback_changed = self.allow_insecure_tls_fallback
             != Config::get_option(config::keys::OPTION_ALLOW_INSECURE_TLS_FALLBACK);
         if allow_insecure_tls_fallback_changed
@@ -546,8 +546,8 @@ async fn handle(data: Data, stream: &mut Connection) {
                 }
                 #[cfg(any(target_os = "macos", target_os = "linux"))]
                 if crate::is_main() {
-                    // below part is for main windows can be reopen during rustdesk installation and installing service from UI
-                    // this make new ipc server (domain socket) can be created.
+                    // 以下部分用于在 rustdesk 安装和从 UI 安装服务期间可以重新打开主窗口
+                    // 这使得可以创建新的 IPC 服务器（域套接字）。
                     std::fs::remove_file(&Config::ipc_path("")).ok();
                     #[cfg(target_os = "linux")]
                     {
@@ -558,7 +558,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                     }
                     #[cfg(target_os = "macos")]
                     {
-                        // our launchagent interval is 1 second
+                        // 我们的 launchagent 间隔是 1 秒
                         hbb_common::sleep(1.5).await;
                         std::process::Command::new("open")
                             .arg("-n")
@@ -566,12 +566,12 @@ async fn handle(data: Data, stream: &mut Connection) {
                             .spawn()
                             .ok();
                     }
-                    // leave above open a little time
+                    // 给上面的 open 一点时间
                     hbb_common::sleep(0.3).await;
-                    // in case below exit failed
+                    // 以防下面的退出失败
                     crate::platform::quit_gui();
                 }
-                std::process::exit(-1); // to make sure --server luauchagent process can restart because SuccessfulExit used
+                std::process::exit(-1); // 确保 --server launchagent 进程可以重启，因为使用了 SuccessfulExit
             }
         }
         Data::OnlineStatus(_) => {
@@ -703,9 +703,9 @@ async fn handle(data: Data, stream: &mut Connection) {
                     } else {
                         Config::set_permanent_password(&value);
                     }
-                    // Explicitly ACK/NACK permanent-password writes. This allows UIs/FFI to
-                    // distinguish "accepted by daemon" vs "IPC send succeeded" without
-                    // reading back any secret.
+                    // 显式确认/拒绝 permanent-password 写入。这允许 UI/FFI
+                    // 区分"被守护进程接受"和"IPC 发送成功"，而无需
+                    // 回读任何密钥。
                     let ack = if updated { "Y" } else { "N" }.to_owned();
                     allow_err!(stream.send(&Data::Config((name.clone(), Some(ack)))).await);
                 } else if name == "salt" {

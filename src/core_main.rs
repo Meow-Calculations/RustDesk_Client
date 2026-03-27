@@ -22,11 +22,11 @@ macro_rules! my_println{
     };
 }
 
-/// shared by flutter and sciter main function
+/// Flutter 和 Sciter 主函数共用
 ///
-/// [Note]
-/// If it returns [`None`], then the process will terminate, and flutter gui will not be started.
-/// If it returns [`Some`], then the process will continue, and flutter gui will be started.
+/// [注意]
+/// 如果返回 [`None`]，进程将终止，Flutter GUI 不会启动。
+/// 如果返回 [`Some`]，进程将继续，Flutter GUI 将启动。
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<Vec<String>> {
     if !crate::common::global_init() {
@@ -35,7 +35,7 @@ pub fn core_main() -> Option<Vec<String>> {
     crate::load_custom_client();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
-        // return None to terminate the process
+        // 返回 None 以终止进程
         return None;
     }
     let mut args = Vec::new();
@@ -83,9 +83,9 @@ pub fn core_main() -> Option<Vec<String>> {
     if args.is_empty() {
         #[cfg(target_os = "linux")]
         let should_check_start_tray = crate::check_process("--server", false);
-        // We can use `crate::check_process("--server", false)` on Windows.
-        // Because `--server` process is the System user's process. We can't get the arguments in `check_process()`.
-        // We can assume that self service running means the server is also running on Windows.
+        // 我们可以在 Windows 上使用 `crate::check_process("--server", false)`。
+        // 因为 `--server` 进程是 System 用户的进程。我们无法在 `check_process()` 中获取其参数。
+        // 我们可以假设自身服务运行意味着服务器也在 Windows 上运行。
         #[cfg(target_os = "windows")]
         let should_check_start_tray = crate::platform::is_self_service_running()
             && crate::platform::is_cur_exe_the_installed();
@@ -154,7 +154,7 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     hbb_common::init_log(false, &log_name);
 
-    // linux uni (url) go here.
+    // Linux uni (url) 走这里。
     #[cfg(all(target_os = "linux", feature = "flutter"))]
     if args.len() > 0 && args[0].starts_with(&crate::get_uri_prefix()) {
         return try_send_by_dbus(args[0].clone());
@@ -316,15 +316,14 @@ pub fn core_main() -> Option<Vec<String>> {
             use crate::platform;
             if args[0] == "--update" {
                 if args.len() > 1 && args[1].ends_with(".dmg") {
-                    // Version check is unnecessary unless downgrading to an older version
-                    // that lacks "update dmg" support. This is a special case since we cannot
-                    // detect the version before extracting the DMG, so we skip the check.
+                    // 除非降级到不支持 "update dmg" 的旧版本，否则不需要版本检查。
+                    // 这是一种特殊情况，因为在解压 DMG 之前我们无法检测版本，所以跳过检查。
                     let dmg_path = &args[1];
                     println!("Updating from DMG: {}", dmg_path);
                     match platform::update_from_dmg(dmg_path) {
                         Ok(_) => {
                             println!("Update process from DMG started successfully.");
-                            // The new process will handle the rest. We can exit.
+                            // 新进程将处理剩余部分。我们可以退出了。
                         }
                         Err(err) => {
                             eprintln!("Failed to start update from DMG: {}", err);
@@ -349,7 +348,7 @@ pub fn core_main() -> Option<Vec<String>> {
         }
         if args[0] == "--remove" {
             if args.len() == 2 {
-                // sleep a while so that process of removed exe exit
+                // 等待一段时间以便被删除的 exe 的进程退出
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 std::fs::remove_file(&args[1]).ok();
                 return None;
@@ -478,7 +477,7 @@ pub fn core_main() -> Option<Vec<String>> {
         } else if args[0] == "--config" {
             if args.len() == 2 && !args[0].contains("host=") {
                 if crate::platform::is_installed() && is_root() {
-                    // encrypted string used in renaming exe.
+                    // 重命名 exe 中使用的加密字符串。
                     let name = if args[1].ends_with(".exe") {
                         args[1].to_owned()
                     } else {
@@ -626,8 +625,8 @@ pub fn core_main() -> Option<Vec<String>> {
             crate::ipc::hwcodec_process();
             return None;
         } else if args[0] == "--terminal-helper" {
-            // Terminal helper process - runs as user to create ConPTY
-            // This is needed because ConPTY has compatibility issues with CreateProcessAsUserW
+            // 终端辅助进程 - 以用户身份运行以创建 ConPTY
+            // 这是必需的，因为 ConPTY 与 CreateProcessAsUserW 存在兼容性问题
             #[cfg(target_os = "windows")]
             {
                 let helper_args: Vec<String> = args[1..].to_vec();
@@ -637,8 +636,8 @@ pub fn core_main() -> Option<Vec<String>> {
             }
             return None;
         } else if args[0] == "--cm" {
-            // call connection manager to establish connections
-            // meanwhile, return true to call flutter window to show control panel
+            // 调用连接管理器来建立连接
+            // 同时返回 true 以调用 Flutter 窗口显示控制面板
             crate::ui_interface::start_option_status_sync();
         } else if args[0] == "--cm-no-ui" {
             #[cfg(feature = "flutter")]
@@ -655,7 +654,7 @@ pub fn core_main() -> Option<Vec<String>> {
             }
             return None;
         } else if args[0] == "-gtk-sudo" {
-            // rustdesk service kill `rustdesk --` processes
+            // rustdesk 服务会终止 `rustdesk --` 进程
             #[cfg(target_os = "linux")]
             if args.len() > 2 {
                 crate::platform::gtk_sudo::exec();
@@ -729,12 +728,12 @@ fn import_config(path: &str) {
     }
 }
 
-/// invoke a new connection
+/// 调用新连接
 ///
-/// [Note]
-/// this is for invoke new connection from dbus.
-/// If it returns [`None`], then the process will terminate, and flutter gui will not be started.
-/// If it returns [`Some`], then the process will continue, and flutter gui will be started.
+/// [注意]
+/// 此函数用于从 dbus 调用新连接。
+/// 如果返回 [`None`]，进程将终止，Flutter GUI 不会启动。
+/// 如果返回 [`Some`]，进程将继续，Flutter GUI 将启动。
 #[cfg(feature = "flutter")]
 fn core_main_invoke_new_connection(mut args: std::env::Args) -> Option<Vec<String>> {
     let mut authority = None;
@@ -840,8 +839,8 @@ fn is_root() -> bool {
     crate::platform::is_root()
 }
 
-/// Check if the executable is a Quick Support version.
-/// Note: This function must be kept in sync with `libs/portable/src/main.rs`.
+/// 检查可执行文件是否为快速支持 (Quick Support) 版本。
+/// 注意：此函数必须与 `libs/portable/src/main.rs` 保持同步。
 #[cfg(windows)]
 #[inline]
 fn is_quick_support_exe(exe: &str) -> bool {

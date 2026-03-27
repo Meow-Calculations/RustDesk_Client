@@ -549,7 +549,7 @@ impl RttCalculator {
     const MIN_SAMPLES: usize = 10; // Require at least 10 samples
     const ALPHA: f32 = 0.5; // Smoothing factor for weighted average
 
-    /// Update RTT estimates with a new sample
+    /// 使用新样本更新 RTT 估计值
     pub fn update(&mut self, delay: u32) {
         // 1. Update historical minimum RTT
         match self.min_rtt {
@@ -580,7 +580,7 @@ impl RttCalculator {
     }
 
     /// Get current RTT estimate
-    /// Returns None if no valid estimation is available
+    /// 如果没有有效的估计值则返回 None
     pub fn get_rtt(&self) -> Option<u32> {
         if let Some(rtt) = self.smoothed_rtt {
             return Some(rtt);

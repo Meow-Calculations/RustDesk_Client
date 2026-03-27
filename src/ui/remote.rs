@@ -29,7 +29,7 @@ lazy_static::lazy_static! {
     static ref VIDEO: Arc<Mutex<Option<Video>>> = Default::default();
 }
 
-/// SciterHandler
+/// Sciter \u5904\u7406\u5668
 /// * element
 /// * close_state  for file path when close
 #[derive(Clone, Default)]

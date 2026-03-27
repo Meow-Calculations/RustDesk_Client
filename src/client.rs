@@ -145,7 +145,7 @@ pub(crate) struct ClientClipboardContext {
     pub is_file_supported: bool,
 }
 
-/// Client of the remote desktop.
+/// 远程桌面客户端。
 pub struct Client;
 
 #[cfg(not(target_os = "ios"))]
@@ -187,7 +187,7 @@ pub fn get_key_state(key: enigo::Key) -> bool {
 impl Client {
     const CLIENT_CLIPBOARD_NAME: &'static str = "client-clipboard";
 
-    /// Start a new connection.
+    /// 启动一个新连接。
     pub async fn start(
         peer: &str,
         key: &str,
@@ -217,7 +217,7 @@ impl Client {
                 }
             }
             Ok(x) => {
-                // Set x.2 to true only in the connect() function to indicate that direct_failures needs to be updated; everywhere else it should be set to false.
+                // 仅在 connect() 函数中将 x.2 设为 true，表示需要更新 direct_failures；其他地方应设为 false。
                 if x.2 {
                     let direct_failures = interface.get_lch().read().unwrap().direct_failures;
                     let direct = x.0 .1;
@@ -232,7 +232,7 @@ impl Client {
         }
     }
 
-    /// Start a new connection.
+    /// 启动一个新连接。
     async fn _start(
         peer: &str,
         key: &str,
@@ -253,7 +253,7 @@ impl Client {
         if config::is_incoming_only() {
             bail!("Incoming only mode");
         }
-        // to-do: remember the port for each peer, so that we can retry easier
+        // 待办：记住每个对等方的端口，以便更容易重试
         if hbb_common::is_ip_str(peer) {
             return Ok((
                 (
@@ -268,7 +268,7 @@ impl Client {
                 false,
             ));
         }
-        // Allow connect to {domain}:{port}
+        // 允许连接到 {domain}:{port}
         if hbb_common::is_domain_port_str(peer) {
             return Ok((
                 (
@@ -312,8 +312,8 @@ impl Client {
 
         let (stop_udp_tx, stop_udp_rx) = oneshot::channel::<()>();
         let udp =
-        // no need to care about multiple rendezvous servers case, since it is acutally not used any more.
-        // Shared state for UDP NAT test result
+        // 无需关心多个会合服务器的情况，因为实际上已不再使用。
+        // UDP NAT 测试结果的共享状态
         if crate::get_udp_punch_enabled() && !interface.is_force_relay() {
             if let Ok((socket, addr)) = new_direct_udp_for(&rendezvous_server).await {
                 let udp_port = Arc::new(Mutex::new(0));
@@ -425,7 +425,7 @@ impl Client {
         };
 
         if !key.is_empty() && !token.is_empty() {
-            // mainly for the security of token
+            // 主要是为了 token 的安全性
             secure_tcp(&mut socket, &key)
                 .await
                 .map_err(|e| anyhow!("Failed to secure tcp: {}", e))?;
@@ -436,14 +436,14 @@ impl Client {
                 if port > 0 {
                     break;
                 }
-                // await for 0.5 RTT
+                // 等待 0.5 RTT
                 if tm.elapsed() > rtt / 2 {
                     break;
                 }
                 hbb_common::sleep(0.001).await;
             }
         }
-        // Stop UDP NAT test task if still running
+        // 停止仍在运行的 UDP NAT 测试任务
         stop_udp_tx.map(|tx| tx.send(()));
         let mut msg_out = RendezvousMessage::new();
         let mut ipv6 = if crate::get_ipv6_punch_enabled() {
@@ -478,7 +478,7 @@ impl Client {
                 peer
             );
             socket.send(&msg_out).await?;
-            // below timeout should not bigger than hbbs's connection timeout.
+            // 下面的超时不应超过 hbbs 的连接超时。
             if let Some(msg_in) =
                 crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await
             {
@@ -564,7 +564,7 @@ impl Client {
                             }
                             .boxed(),
                         );
-                        // Run all connection attempts concurrently, return the first successful one
+                        // 并发运行所有连接尝试，返回第一个成功的
                         let (conn, kcp, typ) = match select_ok(connect_futures).await {
                             Ok(conn) => (Ok(conn.0 .0), conn.0 .1, conn.0 .2),
 
@@ -629,7 +629,7 @@ impl Client {
         ))
     }
 
-    /// Connect to the peer.
+    /// 连接到对等方。
     async fn connect(
         local_addr: SocketAddr,
         peer: SocketAddr,
@@ -705,7 +705,7 @@ impl Client {
         if let Some(udp_socket_v6) = udp_socket_v6 {
             connect_futures.push(udp_nat_connect(udp_socket_v6, "IPv6", connect_timeout).boxed());
         }
-        // Run all connection attempts concurrently, return the first successful one
+        // 并发运行所有连接尝试，返回第一个成功的
         let (mut conn, kcp, mut typ) = match select_ok(connect_futures).await {
             Ok(conn) => (Ok(conn.0 .0), conn.0 .1, conn.0 .2),
             Err(e) => (Err(e), None, ""),
@@ -725,7 +725,7 @@ impl Client {
                 )
                 .await;
                 if let Err(e) = conn {
-                    // this direct is mainly used by on_establish_connection_error, so we update it here before bail
+                    // 此 direct 主要用于 on_establish_connection_error，所以我们在 bail 之前在这里更新它
                     interface.update_direct(Some(false));
                     bail!("Failed to connect via relay server: {}", e);
                 }
@@ -745,7 +745,7 @@ impl Client {
         let pk: Option<Vec<u8>> = match res {
             Ok(pk) => pk,
             Err(e) => {
-                // this direct is mainly used by on_establish_connection_error, so we update it here before bail
+                // 此 direct 主要用于 on_establish_connection_error，所以我们在 bail 之前在这里更新它
                 interface.update_direct(Some(direct));
                 bail!(e);
             }
@@ -754,7 +754,7 @@ impl Client {
         Ok((conn, direct, pk, kcp, typ))
     }
 
-    /// Establish secure connection with the server.
+    /// 与服务端建立安全连接。
     async fn secure_connection(
         peer_id: &str,
         signed_id_pk: Vec<u8>,
@@ -784,7 +784,7 @@ impl Client {
         let sign_pk = match sign_pk {
             Some(v) => v,
             None => {
-                // send an empty message out in case server is setting up secure and waiting for first message
+                // 发送一条空消息，以防服务端正在设置安全连接并等待第一条消息
                 conn.send(&Message::new()).await?;
                 return Ok(option_pk);
             }
@@ -811,7 +811,7 @@ impl Client {
                                 conn.send(&Message::new()).await?;
                             }
                         } else {
-                            // fall back to non-secure connection in case pk mismatch
+                            // 在公钥不匹配的情况下回退到非安全连接
                             log::info!("pk mismatch, fall back to non-secure");
                             let mut msg_out = Message::new();
                             msg_out.set_public_key(PublicKey::new());
@@ -833,7 +833,7 @@ impl Client {
         Ok(option_pk)
     }
 
-    /// Request a relay connection to the server.
+    /// 向服务端请求中继连接。
     async fn request_relay(
         peer: &str,
         relay_server: String,
@@ -848,13 +848,13 @@ impl Client {
         let mut ipv4 = true;
 
         for i in 1..=3 {
-            // use different socket due to current hbbs implementation requiring different nat address for each attempt
+            // 使用不同的 socket，因为当前 hbbs 实现要求每次尝试使用不同的 NAT 地址
             let mut socket = connect_tcp(rendezvous_server, CONNECT_TIMEOUT)
                 .await
                 .with_context(|| "Failed to connect to rendezvous server")?;
 
             if !key.is_empty() && !token.is_empty() {
-                // mainly for the security of token
+                // 主要是为了 token 的安全性
                 secure_tcp(&mut socket, key).await?;
             }
 
@@ -897,7 +897,7 @@ impl Client {
         Self::create_relay(peer, uuid, relay_server, key, conn_type, ipv4).await
     }
 
-    /// Create a relay connection to the server.
+    /// 创建到服务端的中继连接。
     async fn create_relay(
         peer: &str,
         uuid: String,
@@ -939,13 +939,13 @@ impl Client {
 
     #[cfg(not(target_os = "ios"))]
     fn try_stop_clipboard() {
-        // There's a bug here.
-        // If session is closed by the peer, `has_sessions_running()` will always return true.
-        // It's better to check if the active session number.
-        // But it's not a problem, because the clipboard thread does not consume CPU.
+        // 这里有一个 Bug。
+        // 如果会话被对等方关闭，`has_sessions_running()` 将始终返回 true。
+        // 最好检查活跃会话数量。
+        // 但这不是问题，因为剪贴板线程不消耗 CPU。
         //
-        // If we want to fix it, we can add a flag to indicate if session is active.
-        // But I think it's not necessary to introduce complexity at this point.
+        // 如果我们想修复它，可以添加一个标志来指示会话是否活跃。
+        // 但我认为在这个阶段没必要引入复杂性。
         #[cfg(feature = "flutter")]
         if crate::flutter::sessions::has_sessions_running(ConnType::DEFAULT_CONN) {
             return;
@@ -957,11 +957,11 @@ impl Client {
         clipboard::platform::unix::fuse::uninit_fuse_context(true);
     }
 
-    // `try_start_clipboard` is called by all session when connection is established. (When handling peer info).
-    // This function only create one thread with a loop, the loop is shared by all sessions.
-    // After all sessions are end, the loop exists.
+    // `try_start_clipboard` 在所有会话建立连接时被调用（在处理对等方信息时）。
+    // 此函数仅创建一个带循环的线程，该循环由所有会话共享。
+    // 当所有会话结束后，循环退出。
     //
-    // If clipboard update is detected, the text will be sent to all sessions by `send_clipboard_msg`.
+    // 如果检测到剪贴板更新，文本将通过 `send_clipboard_msg` 发送到所有会话。
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn try_start_clipboard(
         _client_clip_ctx: Option<ClientClipboardContext>,
@@ -1174,7 +1174,7 @@ impl ClientClipboardHandler {
     }
 }
 
-/// Audio handler for the [`Client`].
+/// [`Client`] 的音频处理器。
 #[derive(Default)]
 pub struct AudioHandler {
     audio_decoder: Option<(AudioDecoder, Vec<f32>)>,
@@ -1247,9 +1247,9 @@ impl AudioBuffer {
             tms = dt;
         }
 
-        // the safer water mark to drop
+        // 更安全的丢弃水位线
         let mut zero = 0;
-        // the water mark taking most of time
+        // 耗时最多的水位线
         let mut max = 0;
         for i in 0..30 {
             if self.2[i] == 0 && zero == i {
@@ -1265,9 +1265,9 @@ impl AudioBuffer {
         }
         zero = zero * 2 / 3;
 
-        // how many data can be dropped:
-        // 1. will not drop if buffered data is less than 600ms
-        // 2. choose based on min(zero, max)
+        // 可以丢弃多少数据：
+        // 1. 如果缓冲数据少于 600ms 则不丢弃
+        // 2. 根据 min(zero, max) 选择
         const N: usize = 4;
         self.2[max] = 0;
         if max < 6 {
@@ -1344,7 +1344,7 @@ impl AudioHandler {
         Ok(())
     }
 
-    /// Start the audio playback.
+    /// 启动音频播放。
     #[cfg(not(target_os = "linux"))]
     fn start_audio(&mut self, format0: AudioFormat) -> ResultType<()> {
         let device = AUDIO_HOST
@@ -1362,7 +1362,7 @@ impl AudioHandler {
         let mut config: StreamConfig = config.into();
         #[cfg(not(target_os = "ios"))]
         {
-            // this makes ios audio output not work
+            // 这会导致 iOS 音频输出不工作
             config.buffer_size = cpal::BufferSize::Fixed(64);
         }
 
@@ -1395,7 +1395,7 @@ impl AudioHandler {
         Ok(())
     }
 
-    /// Handle audio format and create an audio decoder.
+    /// 处理音频格式并创建音频解码器。
     pub fn handle_format(&mut self, f: AudioFormat) {
         match AudioDecoder::new(f.sample_rate, if f.channels > 1 { Stereo } else { Mono }) {
             Ok(d) => {
@@ -1410,7 +1410,7 @@ impl AudioHandler {
         }
     }
 
-    /// Handle audio frame and play it.
+    /// 处理音频帧并播放。
     #[inline]
     pub fn handle_frame(&mut self, frame: AudioFrame) {
         #[cfg(not(target_os = "linux"))]
@@ -1460,7 +1460,7 @@ impl AudioHandler {
         });
     }
 
-    /// Build audio output stream for current device.
+    /// 为当前设备构建音频输出流。
     #[cfg(not(target_os = "linux"))]
     fn build_output_stream<T: cpal::Sample + cpal::SizedSample + cpal::FromSample<f32>>(
         &mut self,
@@ -1469,7 +1469,7 @@ impl AudioHandler {
     ) -> ResultType<()> {
         self.device_channel = config.channels;
         let err_fn = move |err| {
-            // too many errors, will improve later
+            // 错误太多，后续改进
             log::trace!("an error occurred on stream: {}", err);
         };
         self.audio_buffer
@@ -1487,7 +1487,7 @@ impl AudioHandler {
                 let mut n = data.len();
                 let mut lock = audio_buffer.lock().unwrap();
                 let mut having = lock.occupied_len();
-                // android two timestamps, one from zero, another not
+                // Android 两个时间戳，一个从零开始，另一个不是
                 #[cfg(not(target_os = "android"))]
                 if having < n {
                     let tms = info.timestamp();
@@ -1496,7 +1496,7 @@ impl AudioHandler {
                         .duration_since(&tms.callback)
                         .unwrap_or(Duration::from_millis(0));
 
-                    // must long enough to fight back scheuler delay
+                    // 必须足够长以对抗调度器延迟
                     if how_long > Duration::from_millis(6) && how_long < Duration::from_millis(3000)
                     {
                         drop(lock);
@@ -1536,7 +1536,7 @@ impl AudioHandler {
     }
 }
 
-/// Video handler for the [`Client`].
+/// [`Client`] 的视频处理器。
 pub struct VideoHandler {
     decoder: Decoder,
     pub rgb: ImageRgb,
@@ -1559,7 +1559,7 @@ impl VideoHandler {
         None
     }
 
-    /// Create a new video handler.
+    /// 创建一个新的视频处理器。
     pub fn new(format: CodecFormat, _display: usize) -> Self {
         let luid = Self::get_adapter_luid();
         log::info!("new video handler for display #{_display}, format: {format:?}, luid: {luid:?}");
@@ -1581,7 +1581,7 @@ impl VideoHandler {
         }
     }
 
-    /// Handle a new video frame.
+    /// 处理新的视频帧。
     #[inline]
     pub fn handle_frame(
         &mut self,
@@ -1671,7 +1671,7 @@ impl VideoHandler {
     }
 }
 
-// The source of sent password
+// 发送密码的来源
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 enum PasswordSource {
     PersonalAb(Vec<u8>),
@@ -1686,7 +1686,7 @@ impl Default for PasswordSource {
 }
 
 impl PasswordSource {
-    // Whether the password is personal ab password
+    // 密码是否为个人地址簿密码
     pub fn is_personal_ab(&self, password: &[u8]) -> bool {
         if password.is_empty() {
             return false;
@@ -1697,7 +1697,7 @@ impl PasswordSource {
         }
     }
 
-    // Whether the password is shared ab password
+    // 密码是否为共享地址簿密码
     pub fn is_shared_ab(&self, password: &[u8], hash: &Hash) -> bool {
         if password.is_empty() {
             return false;
@@ -1708,7 +1708,7 @@ impl PasswordSource {
         }
     }
 
-    //  Whether the password equals to the connected password
+    // 密码是否与已连接的密码相等
     fn equal(password: &str, connected_password: &[u8], hash: &Hash) -> bool {
         let mut hasher = Sha256::new();
         hasher.update(password);
@@ -1725,7 +1725,7 @@ struct ConnToken {
     session_id: u64,
 }
 
-/// Login config handler for [`Client`].
+/// [`Client`] 的登录配置处理器。
 #[derive(Default)]
 pub struct LoginConfigHandler {
     id: String,
@@ -1807,7 +1807,7 @@ impl LoginConfigHandler {
                 key.to_owned()
             };
 
-            // here we can check <id>/r@server
+            // 这里可以检查 <id>/r@server
             let real_id = crate::ui_interface::handle_relay_id(raw_id).to_string();
             if real_id != raw_id {
                 force_relay = true;
@@ -1840,7 +1840,7 @@ impl LoginConfigHandler {
         if sid == 0 {
             sid = rand::random();
             if sid == 0 {
-                // you won the lottery
+                // 你中彩了
                 sid = 1;
             }
         }
@@ -1868,7 +1868,7 @@ impl LoginConfigHandler {
         self.record_state = false;
         self.record_permission = true;
 
-        // `std::env::remove_var("IS_TERMINAL_ADMIN");` is called in `session_add_sync()` - `flutter_ffi.rs`.
+        // `std::env::remove_var("IS_TERMINAL_ADMIN");` 在 `session_add_sync()` - `flutter_ffi.rs` 中被调用。
         let is_terminal_admin = conn_type == ConnType::TERMINAL
             && std::env::var("IS_TERMINAL_ADMIN").map_or(false, |v| v == "Y");
         self.is_terminal_admin = is_terminal_admin;
@@ -1918,7 +1918,7 @@ impl LoginConfigHandler {
         self.save_config(config);
     }
 
-    //to-do: too many dup code below.
+    // 待办：下面有太多重复代码。
 
     /// Save view style to the current config.
     ///
@@ -2039,9 +2039,9 @@ impl LoginConfigHandler {
     ///
     /// * `name` - The name of the option to toggle.
     ///
-    // It's Ok to check the option empty in this function.
-    // `toggle_option()` is only called in a session.
-    // Custom client advanced settings will not effect this function.
+    // 在此函数中检查选项是否为空是没问题的。
+    // `toggle_option()` 仅在会话中被调用。
+    // 自定义客户端高级设置不会影响此函数。
     pub fn toggle_option(&mut self, name: String) -> Option<Message> {
         let mut option = OptionMessage::default();
         let mut config = self.load_config();

@@ -83,19 +83,18 @@ type ConnMap = HashMap<i32, ConnInner>;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 const CONFIG_SYNC_INTERVAL_SECS: f32 = 0.3;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-// 3s is enough for at least one initial sync attempt:
-// 0.3s backoff + up to 1s connect timeout + up to 1s response timeout.
+// 3 秒足够至少一次初始同步尝试：
+// 0.3 秒退避 + 最多 1 秒连接超时 + 最多 1 秒响应超时。
 const CONFIG_SYNC_INITIAL_WAIT_SECS: u64 = 3;
 
 lazy_static::lazy_static! {
     pub static ref CHILD_PROCESS: Childs = Default::default();
-    // A client server used to provide local services(audio, video, clipboard, etc.)
-    // for all initiative connections.
+    // 用于为所有主动连接提供本地服务（音频、视频、剪贴板等）的客户端服务器。
     //
-    // [Note]
-    // ugly
-    // Now we use this [`CLIENT_SERVER`] to do following operations:
-    // - record local audio, and send to remote
+    // [注意]
+    // 设计不够优雅
+    // 目前我们使用此 [`CLIENT_SERVER`] 来执行以下操作：
+    // - 录制本地音频并发送到远端
     pub static ref CLIENT_SERVER: ServerPtr = new();
 }
 
@@ -112,7 +111,7 @@ pub fn new() -> ServerPtr {
     let mut server = Server {
         connections: HashMap::new(),
         services: HashMap::new(),
-        id_count: hbb_common::rand::random::<i32>() % 1000 + 1000, // ensure positive
+        id_count: hbb_common::rand::random::<i32>() % 1000 + 1000, // 确保为正数
     };
     server.add_service(Box::new(audio_service::new()));
     #[cfg(not(target_os = "ios"))]
@@ -133,7 +132,7 @@ pub fn new() -> ServerPtr {
             server.add_service(Box::new(input_service::new_pos()));
             #[cfg(target_os = "linux")]
             if scrap::is_x11() {
-                // wayland does not support multiple displays currently
+                // Wayland 目前不支持多显示器
                 server.add_service(Box::new(input_service::new_window_focus()));
             }
             #[cfg(not(target_os = "linux"))]
@@ -154,7 +153,7 @@ pub fn new() -> ServerPtr {
             }
         }
     }
-    // Terminal service is created per connection, not globally
+    // 终端服务是按连接创建的，而非全局创建
     Arc::new(RwLock::new(server))
 }
 
@@ -166,9 +165,9 @@ async fn accept_connection_(
 ) -> ResultType<()> {
     let local_addr = socket.local_addr();
     drop(socket);
-    // even we drop socket, below still may fail if not use reuse_addr,
-    // there is TIME_WAIT before socket really released, so sometimes we
-    // see "Only one usage of each socket address is normally permitted" on windows sometimes,
+    // 即使我们释放了 socket，下面仍然可能失败（如果不使用 reuse_addr），
+    // socket 真正释放前有 TIME_WAIT，所以在 Windows 上有时
+    // 会看到 "Only one usage of each socket address is normally permitted"
     let listener = new_listener(local_addr, true).await?;
     log::info!("Server listening on: {}", &listener.local_addr()?);
     if let Ok((stream, addr)) = timeout(CONNECT_TIMEOUT, listener.accept()).await? {
@@ -444,7 +443,7 @@ impl Server {
         }
     }
 
-    // get a new unique id
+    // 获取一个新的唯一 ID
     pub fn get_new_id(&mut self) -> i32 {
         self.id_count += 1;
         self.id_count
@@ -550,27 +549,27 @@ pub fn check_zombie() {
     });
 }
 
-/// Start the host server that allows the remote peer to control the current machine.
+/// 启动主机服务器，允许远端对等方控制当前机器。
 ///
-/// # Arguments
+/// # 参数
 ///
-/// * `is_server` - Whether the current client is definitely the server.
-/// If true, the server will be started.
-/// Otherwise, client will check if there's already a server and start one if not.
+/// * `is_server` - 当前客户端是否确定是服务端。
+/// 如果为 true，将启动服务器。
+/// 否则，客户端将检查是否已有服务器在运行，如果没有则启动一个。
 #[cfg(any(target_os = "android", target_os = "ios"))]
 #[tokio::main]
 pub async fn start_server(_is_server: bool) {
     crate::RendezvousMediator::start_all().await;
 }
 
-/// Start the host server that allows the remote peer to control the current machine.
+/// 启动主机服务器，允许远端对等方控制当前机器。
 ///
-/// # Arguments
+/// # 参数
 ///
-/// * `is_server` - Whether the current client is definitely the server.
-/// If true, the server will be started.
-/// Otherwise, client will check if there's already a server and start one if not.
-/// * `no_server` - If `is_server` is false, whether to start a server if not found.
+/// * `is_server` - 当前客户端是否确定是服务端。
+/// 如果为 true，将启动服务器。
+/// 否则，客户端将检查是否已有服务器在运行，如果没有则启动一个。
+/// * `no_server` - 如果 `is_server` 为 false，在未找到服务器时是否启动一个。
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tokio::main]
 pub async fn start_server(is_server: bool, no_server: bool) {
@@ -694,7 +693,7 @@ async fn wait_initial_config_sync() {
         return;
     }
 
-    // Non-server process should not block startup, but still keeps background sync/watch alive.
+    // 非服务器进程不应阻塞启动，但仍在后台保持同步/监视。
     if !crate::is_server() {
         tokio::spawn(async move {
             sync_and_watch_config_dir(None).await;
@@ -707,7 +706,7 @@ async fn wait_initial_config_sync() {
         sync_and_watch_config_dir(Some(sync_done_tx)).await;
     });
 
-    // Server process waits up to N seconds for initial root->local sync to reduce stale-start window.
+    // 服务器进程最多等待 N 秒以完成初始 root->local 同步，以减少过期启动窗口。
     tokio::select! {
         _ = &mut sync_done_rx => {
         }
@@ -754,16 +753,16 @@ async fn sync_and_watch_config_dir(sync_done_tx: Option<tokio::sync::oneshot::Se
                                             log::info!("sync config2 from root");
                                         }
                                     } else {
-                                        // only on macos, because this issue was only reproduced on macos
+                                        // 仅在 macOS 上，因为此问题仅在 macOS 上复现
                                         #[cfg(target_os = "macos")]
                                         {
-                                            // root config is empty, mark for sync in watch loop
-                                            // to prevent root from generating a new config on login screen
+                                            // root 配置为空，标记在监视循环中同步
+                                            // 以防止 root 在登录屏幕上生成新配置
                                             is_root_config_empty = true;
                                         }
                                     }
                                     synced = true;
-                                    // Notify startup waiter once initial sync phase finishes successfully.
+                                    // 初始同步阶段成功完成后通知启动等待者。
                                     if let Some(tx) = sync_done_tx.take() {
                                         let _ = tx.send(());
                                     }
@@ -810,7 +809,7 @@ async fn sync_and_watch_config_dir(sync_done_tx: Option<tokio::sync::oneshot::Se
             }
         }
     }
-    // Notify startup waiter even when initial sync is skipped/failed, to avoid unnecessary waiting.
+    // 即使初始同步被跳过/失败，也通知启动等待者，以避免不必要的等待。
     if let Some(tx) = sync_done_tx.take() {
         let _ = tx.send(());
     }
@@ -819,14 +818,14 @@ async fn sync_and_watch_config_dir(sync_done_tx: Option<tokio::sync::oneshot::Se
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn stop_main_window_process() {
-    // this may also kill another --server process,
-    // but --server usually can be auto restarted by --service, so it is ok
+    // 这也可能会终止另一个 --server 进程，
+    // 但 --server 通常可以被 --service 自动重启，所以没问题
     if let Ok(mut conn) = crate::ipc::connect(1000, "").await {
         conn.send(&crate::ipc::Data::Close).await.ok();
     }
     #[cfg(windows)]
     {
-        // in case above failure, e.g. zombie process
+        // 以防上述操作失败的情况，例如僵尸进程
         if let Err(e) = crate::platform::try_kill_rustdesk_main_window_process() {
             log::error!("kill failed: {}", e);
         }
