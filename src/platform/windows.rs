@@ -164,8 +164,8 @@ pub fn reset_input_cache() {}
 
 pub fn get_cursor() -> ResultType<Option<u64>> {
     unsafe {
-        #[allow(invalid_value)]
-        let mut ci: CURSORINFO = mem::MaybeUninit::uninit().assume_init();
+        // 安全修复 H-07: 使用 zeroed 替代未初始化内存，避免未定义行为
+        let mut ci: CURSORINFO = mem::zeroed();
         ci.cbSize = std::mem::size_of::<CURSORINFO>() as _;
         if crate::portable_service::client::get_cursor_info(&mut ci) == FALSE {
             return Err(io::Error::last_os_error().into());
@@ -1020,7 +1020,9 @@ pub fn get_active_username() -> String {
     if n == 0 {
         return "".to_owned();
     }
-    let sl = unsafe { std::slice::from_raw_parts(buff.as_ptr(), n as _) };
+    // 安全熔断 H-06: C FFI 返回值可能超过缓冲区大小，强制约束上界
+    let n = (n as usize).min(buff_size);
+    let sl = unsafe { std::slice::from_raw_parts(buff.as_ptr(), n) };
     String::from_utf16(sl)
         .unwrap_or("??".to_owned())
         .trim_end_matches('\0')
@@ -1046,7 +1048,9 @@ fn get_session_username(session_id: u32) -> String {
     if n == 0 {
         return "".to_owned();
     }
-    let sl = unsafe { std::slice::from_raw_parts(buff.as_ptr(), n as _) };
+    // 安全熔断 H-06: C FFI 返回值可能超过缓冲区大小，强制约束上界
+    let n = (n as usize).min(buff_size);
+    let sl = unsafe { std::slice::from_raw_parts(buff.as_ptr(), n) };
     String::from_utf16(sl)
         .unwrap_or("".to_owned())
         .trim_end_matches('\0')

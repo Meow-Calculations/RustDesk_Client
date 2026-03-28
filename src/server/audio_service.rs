@@ -132,6 +132,14 @@ mod pa_impl {
                 }
 
                 let data = unsafe { align_to_32(data.into()) };
+                // 安全熔断：f32 强转要求数据长度必须是 4 的整数倍
+                if data.len() % 4 != 0 {
+                    log::warn!(
+                        "音频数据长度 {} 不是 4 的整数倍，跳过此帧",
+                        data.len()
+                    );
+                    continue;
+                }
                 let data = unsafe {
                     std::slice::from_raw_parts::<f32>(data.as_ptr() as _, data.len() / 4)
                 };

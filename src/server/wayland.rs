@@ -6,6 +6,7 @@ use scrap::{
     Capturer, Display, Frame, TraitCapturer,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::io;
 
 use crate::{
@@ -17,7 +18,8 @@ use crate::{
 };
 
 lazy_static::lazy_static! {
-    static ref CAP_DISPLAY_INFO: RwLock<HashMap<usize, u64>> = RwLock::new(HashMap::new());
+    // 安全修复 C-04: 使用 Arc 管理 CapDisplayInfo 生命周期，防止 Use-After-Free
+    static ref CAP_DISPLAY_INFO: RwLock<HashMap<usize, Arc<CapDisplayInfo>>> = RwLock::new(HashMap::new());
     static ref PIPEWIRE_INITIALIZED: RwLock<bool> = RwLock::new(false);
     static ref LOG_SCRAP_COUNT: Mutex<u32> = Mutex::new(0);
     static ref ACTIVE_DISPLAY_COUNT: RwLock<usize> = RwLock::new(0);
@@ -195,7 +197,7 @@ pub(super) async fn check_init() -> ResultType<()> {
                     num_cpus::get()
                 );
 
-                // Create individual CapDisplayInfo for each display with its own capturer
+                // 安全修复 C-04: 使用 Arc 引用计数管理 CapDisplayInfo 生命周期
                 for (idx, display) in all.into_iter().enumerate() {
                     let capturer =
                         Box::into_raw(Box::new(Capturer::new(display).with_context(|| {
@@ -203,16 +205,16 @@ pub(super) async fn check_init() -> ResultType<()> {
                         })?));
                     let capturer = CapturerPtr(capturer);
 
-                    let cap_display_info = Box::into_raw(Box::new(CapDisplayInfo {
+                    let cap_display_info = Arc::new(CapDisplayInfo {
                         rects: rects.clone(),
                         displays: displays.clone(),
                         num,
                         primary,
                         current: idx,
                         capturer,
-                    }));
+                    });
 
-                    lock.insert(idx, cap_display_info as u64);
+                    lock.insert(idx, cap_display_info);
                 }
             }
         }
@@ -223,12 +225,8 @@ pub(super) async fn check_init() -> ResultType<()> {
 pub(super) async fn get_displays() -> ResultType<Vec<DisplayInfo>> {
     check_init().await?;
     let cap_map = CAP_DISPLAY_INFO.read().unwrap();
-    if let Some(addr) = cap_map.values().next() {
-        let cap_display_info: *const CapDisplayInfo = *addr as _;
-        unsafe {
-            let cap_display_info = &*cap_display_info;
-            Ok(cap_display_info.displays.clone())
-        }
+    if let Some(info) = cap_map.values().next() {
+        Ok(info.displays.clone())
     } else {
         bail!("Failed to get capturer display info");
     }
@@ -236,12 +234,8 @@ pub(super) async fn get_displays() -> ResultType<Vec<DisplayInfo>> {
 
 pub(super) fn get_primary() -> ResultType<usize> {
     let cap_map = CAP_DISPLAY_INFO.read().unwrap();
-    if let Some(addr) = cap_map.values().next() {
-        let cap_display_info: *const CapDisplayInfo = *addr as _;
-        unsafe {
-            let cap_display_info = &*cap_display_info;
-            Ok(cap_display_info.primary)
-        }
+    if let Some(info) = cap_map.values().next() {
+        Ok(info.primary)
     } else {
         bail!("Failed to get capturer display info");
     }
@@ -252,11 +246,10 @@ pub fn clear() {
         return;
     }
     let mut write_lock = CAP_DISPLAY_INFO.write().unwrap();
-    for (_, addr) in write_lock.iter() {
-        let cap_display_info: *mut CapDisplayInfo = *addr as _;
+    // 安全修复 C-04: Arc 引用计数自动管理释放，仅需释放内部的 Capturer 裸指针
+    for (_, info) in write_lock.iter() {
         unsafe {
-            let _box_capturer = Box::from_raw((*cap_display_info).capturer.0);
-            let _box_cap_display_info = Box::from_raw(cap_display_info);
+            let _box_capturer = Box::from_raw(info.capturer.0);
         }
     }
     write_lock.clear();
@@ -272,22 +265,18 @@ pub(super) fn get_capturer_for_display(
         bail!("Do not call this function if not wayland");
     }
     let cap_map = CAP_DISPLAY_INFO.read().unwrap();
-    if let Some(addr) = cap_map.get(&display_idx) {
-        let cap_display_info: *const CapDisplayInfo = *addr as _;
-        unsafe {
-            let cap_display_info = &*cap_display_info;
-            let rect = cap_display_info.rects[cap_display_info.current];
-            Ok(super::video_service::CapturerInfo {
-                origin: rect.0,
-                width: rect.1,
-                height: rect.2,
-                ndisplay: cap_display_info.num,
-                current: cap_display_info.current,
-                privacy_mode_id: 0,
-                _capturer_privacy_mode_id: 0,
-                capturer: Box::new(cap_display_info.capturer.clone()),
-            })
-        }
+    if let Some(info) = cap_map.get(&display_idx) {
+        let rect = info.rects[info.current];
+        Ok(super::video_service::CapturerInfo {
+            origin: rect.0,
+            width: rect.1,
+            height: rect.2,
+            ndisplay: info.num,
+            current: info.current,
+            privacy_mode_id: 0,
+            _capturer_privacy_mode_id: 0,
+            capturer: Box::new(info.capturer.clone()),
+        })
     } else {
         bail!(
             "Failed to get capturer display info for display {}",

@@ -151,8 +151,13 @@ struct WhiteboardApplication {
 
 impl WhiteboardApplication {
     fn new<T>(event_loop: &EventLoop<T>) -> ResultType<Self> {
-        // https://github.com/rust-windowing/winit/blob/f6893a4390dfe6118ce4b33458d458fd3efd3025/examples/window.rs#L91
-        // SAFETY: we drop the context right before the event loop is stopped, thus making it safe.
+        // 安全说明 M-06: 将 DisplayHandle<'_> 扩展为 DisplayHandle<'static>
+        // 安全不变量（必须同时满足）：
+        //   1. Context 在 exiting() 回调中 DROP（L349: self.context = None）
+        //   2. exiting() 在 EventLoop 关闭前被调用，此时 DisplayHandle 仍然有效
+        //   3. 因此 Context 的实际生命周期不超过 DisplayHandle 的生命周期
+        // 如果 winit 将来改变 exiting 调用时序，此处可能出现 Use-After-Free
+        // 参考: https://github.com/rust-windowing/winit/blob/f6893a43/examples/window.rs#L91
         let context = match Context::new(unsafe {
             std::mem::transmute::<DisplayHandle<'_>, DisplayHandle<'static>>(
                 event_loop.display_handle()?,

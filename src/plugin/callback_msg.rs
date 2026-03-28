@@ -139,6 +139,14 @@ pub(super) extern "C" fn cb_msg(
     cb_msg_field!(target);
     cb_msg_field!(id);
 
+    // 安全熔断：插件 FFI 传入的 content 指针必须非空且长度合理
+    if content.is_null() || len == 0 {
+        return PluginReturn::new(
+            errno::ERR_CALLBACK_INVALID_ARGS,
+            "content pointer is null or length is 0",
+        );
+    }
+
     match &target as _ {
         MSG_TO_PEER_TARGET => {
             cb_msg_field!(peer);

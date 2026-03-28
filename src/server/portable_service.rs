@@ -109,8 +109,15 @@ impl SharedMemory {
     }
 
     pub fn write(&self, addr: usize, data: &[u8]) {
+        // 安全熔断：共享内存越界写入会导致堆溢出，必须在 Release 模式下也生效
+        if addr + data.len() > self.inner.len() {
+            log::error!(
+                "共享内存越界写入被阻止: addr={}, data_len={}, shmem_cap={}",
+                addr, data.len(), self.inner.len()
+            );
+            return;
+        }
         unsafe {
-            debug_assert!(addr + data.len() <= self.inner.len());
             let ptr = self.inner.as_ptr().add(addr);
             let shared_mem_slice = slice::from_raw_parts_mut(ptr, data.len());
             shared_mem_slice.copy_from_slice(data);
@@ -716,6 +723,18 @@ pub mod client {
                         ));
                     }
                     let frame_ptr = base.add(ADDR_CAPTURE_FRAME);
+                    // 安全熔断：帧数据长度不能超出共享内存可用边界
+                    let max_frame_len = shmem.len().saturating_sub(ADDR_CAPTURE_FRAME);
+                    if (*frame_info).length > max_frame_len {
+                        log::error!(
+                            "帧数据长度越界: frame_len={}, max_available={}",
+                            (*frame_info).length, max_frame_len
+                        );
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "frame length exceeds shared memory bounds",
+                        ));
+                    }
                     let data = slice::from_raw_parts(frame_ptr, (*frame_info).length);
                     Ok(Frame::PixelBuffer(PixelBuffer::with_BGRA(
                         data,

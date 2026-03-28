@@ -104,6 +104,11 @@ impl PluginNativeHandler for PluginNativeSessionHandler {
             "add_session_hook" => {
                 if let Some(id) = data.get("id") {
                     if let Some(id) = id.as_str() {
+                        // 安全熔断 H-05: 外部插件传入的函数指针必须非空，防止任意代码执行
+                        if raw.is_null() {
+                            log::error!("add_session_hook: null callback pointer from plugin");
+                            return None;
+                        }
                         let cb: OnSessionRgbaCallback = unsafe { std::mem::transmute(raw) };
                         SESSION_HANDLER.add_session_hook(id.to_string(), cb);
                         return Some(super::NR {
@@ -168,13 +173,17 @@ impl PluginNativeSessionHandler {
     fn remove_session(&self, session_id: String) {
         let _ = self.cbs.write().unwrap().remove(&session_id);
         let mut sessions = self.sessions.write().unwrap();
-        for i in 0..sessions.len() {
-            if sessions[i].id == session_id {
-                sessions[i].close_event_stream();
-                sessions[i].close();
-                sessions.remove(i);
+        // 安全修复 M-04: 原实现在 for 循环中 remove(i) 导致索引跳跃
+        // 改用 retain 模式安全过滤，先关闭再移除
+        sessions.retain(|session| {
+            if session.id == session_id {
+                session.close_event_stream();
+                session.close();
+                false // 移除
+            } else {
+                true // 保留
             }
-        }
+        });
     }
 
     #[inline]

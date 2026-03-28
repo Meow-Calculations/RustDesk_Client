@@ -356,6 +356,17 @@ unsafe fn inject_dll<'a>(hproc: HANDLE, hthread: HANDLE, dll_file: &'a str) -> R
         bail!("Failed GetProcAddress of LoadLibraryW");
     }
 
+    // 安全熔断 M-05: hthread 必须有效，否则 APC 注入将导致未定义行为
+    if hthread.is_null() {
+        bail!("hthread is null, cannot queue APC");
+    }
+
+    // 安全说明 M-05: 此处 transmute 将 LoadLibraryW 的 FARPROC 转为 APC 回调函数指针
+    // 这是 Windows DLL 注入的标准技术（APC injection），功能上必要且不可替代。
+    // 前提条件：
+    //   1. load_librarya 是由 GetProcAddress 从 kernel32 获取的合法函数指针（已校验非空）
+    //   2. hthread 是由 CreateProcessAsUserW 创建的合法线程句柄（已校验非空）
+    //   3. buf 是 VirtualAllocEx 分配的目标进程内存（已校验非空）
     if 0 == QueueUserAPC(Some(std::mem::transmute(load_librarya)), hthread, buf as _) {
         bail!("Failed QueueUserAPC");
     }

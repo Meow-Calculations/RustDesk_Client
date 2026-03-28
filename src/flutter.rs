@@ -171,6 +171,10 @@ fn rust_args_to_c_args(args: Vec<String>, outlen: *mut c_int) -> *mut *mut c_cha
 
 #[no_mangle]
 pub unsafe extern "C" fn free_c_args(ptr: *mut *mut c_char, len: c_int) {
+    // 安全熔断：防止空指针解引用和非法长度导致的双重释放
+    if ptr.is_null() || len <= 0 {
+        return;
+    }
     let len = len as usize;
 
     // Get back our vector.
@@ -179,8 +183,10 @@ pub unsafe extern "C" fn free_c_args(ptr: *mut *mut c_char, len: c_int) {
 
     // Now drop one string at a time.
     for elem in v {
-        let s = CString::from_raw(elem);
-        std::mem::drop(s);
+        if !elem.is_null() {
+            let s = CString::from_raw(elem);
+            std::mem::drop(s);
+        }
     }
 
     // Afterwards the vector will be dropped and thus freed.

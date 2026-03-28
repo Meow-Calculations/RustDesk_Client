@@ -579,6 +579,10 @@ pub fn handle_client_event(id: &str, peer: &str, event: &[u8]) -> Message {
 }
 
 fn make_plugin_request(id: &str, content: *const c_void, len: usize) -> Message {
+    // 安全熔断 C-05: content 可能为 null（错误路径传入），必须前置检查
+    if content.is_null() || len == 0 {
+        return make_plugin_failure(id, "", "empty plugin response content");
+    }
     let mut misc = Misc::new();
     misc.set_plugin_request(PluginRequest {
         id: id.to_owned(),
