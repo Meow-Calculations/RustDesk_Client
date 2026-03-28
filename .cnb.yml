@@ -1,0 +1,341 @@
+# ============================================================================
+# RustDesk CNB Cloud Native Build CI/CD Pipeline
+# ============================================================================
+# Triggers:
+#   - push to master: build Linux x86_64 + ARM64 → upload as commit assets
+#   - tag push: build all platforms → upload to Release (with auto-create)
+#   - pull_request: cargo check on Linux x86_64 (quick validation)
+#   - web_trigger / api_trigger: manual build + upload
+# ============================================================================
+# CNB CI 内置环境变量:
+#   CNB_TOKEN       - 认证令牌 (自动注入)
+#   CNB_REPO_SLUG   - 仓库路径 org/repo (自动注入)
+#   CNB_COMMIT      - 当前 commit SHA (自动注入)
+#   CNB_TAG_NAME    - 当前 tag 名 (tag_push 时注入)
+#   CNB_BUILD_ID    - 构建 ID (自动注入)
+# ============================================================================
+
+master:
+  # ---------- Manual Trigger (UI or API) ----------
+  web_trigger:
+    - name: manual-build-and-upload
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: collect-artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so \
+               /tmp/artifacts/rustdesk-linux-x86_64-lib.so 2>/dev/null || true
+            ls -lh /tmp/artifacts/ 2>/dev/null || true
+        - name: upload-to-cnb
+          script: |
+            if [ -z "$(ls -A /tmp/artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --commit "$CNB_COMMIT" \
+              --artifacts-dir /tmp/artifacts \
+              --ttl 90
+
+  api_trigger:
+    - name: api-build-and-upload
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: collect-artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so \
+               /tmp/artifacts/rustdesk-linux-x86_64-lib.so 2>/dev/null || true
+            ls -lh /tmp/artifacts/ 2>/dev/null || true
+        - name: upload-to-cnb
+          script: |
+            if [ -z "$(ls -A /tmp/artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --commit "$CNB_COMMIT" \
+              --artifacts-dir /tmp/artifacts \
+              --ttl 90
+
+  # ---------- PR Check (no upload) ----------
+  pull_request:
+    - name: pr-check
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target:copy-on-write
+      stages:
+        - name: setup-rust
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+        - name: setup-vcpkg
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: check-compile
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            cargo check --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu
+
+  # ---------- Push to master: build + upload commit assets ----------
+  push:
+    - name: build-and-upload-linux-x86_64
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target-amd64:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: collect-artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so \
+               /tmp/artifacts/rustdesk-linux-x86_64-lib.so 2>/dev/null || true
+            ls -lh /tmp/artifacts/ || echo "No artifacts"
+        - name: upload-commit-assets
+          script: |
+            if [ -z "$(ls -A /tmp/artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --commit "$CNB_COMMIT" \
+              --artifacts-dir /tmp/artifacts \
+              --ttl 90
+
+    - name: build-and-upload-linux-arm64
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb-cross-arm64
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target-arm64:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add aarch64-unknown-linux-gnu
+            dpkg --add-architecture arm64
+            apt-get update -y
+            apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet arm64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            export PKG_CONFIG_PATH="/opt/vcpkg/installed/arm64-linux/lib/pkgconfig:/opt/vcpkg/installed/arm64-linux/share/pkgconfig"
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
+            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot /usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+            export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+            export CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            export CXXFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target aarch64-unknown-linux-gnu --lib
+        - name: collect-artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/aarch64-unknown-linux-gnu/release/librustdesk.so \
+               /tmp/artifacts/rustdesk-linux-arm64-lib.so 2>/dev/null || true
+            ls -lh /tmp/artifacts/ || echo "No artifacts"
+        - name: upload-commit-assets
+          script: |
+            if [ -z "$(ls -A /tmp/artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --commit "$CNB_COMMIT" \
+              --artifacts-dir /tmp/artifacts \
+              --ttl 90
+
+# ---------- Tag Push: full release build + upload to Release ----------
+$:
+  tag_push:
+    - name: release-linux-x86_64
+      runner:
+        cpus: 32
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - release-target-amd64:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: package
+          script: |
+            VERSION="${CNB_TAG_NAME}"
+            ARTIFACT_DIR="/tmp/release-artifacts"
+            mkdir -p "$ARTIFACT_DIR"
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so \
+               "$ARTIFACT_DIR/rustdesk-${VERSION}-linux-x86_64-lib.so" 2>/dev/null || true
+            ls -lh "$ARTIFACT_DIR/"
+        - name: upload-to-release
+          script: |
+            if [ -z "$(ls -A /tmp/release-artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --artifacts-dir /tmp/release-artifacts \
+              --ttl 180
+
+    - name: release-linux-arm64
+      runner:
+        cpus: 32
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb-cross-arm64
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - release-target-arm64:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add aarch64-unknown-linux-gnu
+            dpkg --add-architecture arm64
+            apt-get update -y
+            apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet arm64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            export PKG_CONFIG_PATH="/opt/vcpkg/installed/arm64-linux/lib/pkgconfig:/opt/vcpkg/installed/arm64-linux/share/pkgconfig"
+            export PKG_CONFIG_ALLOW_CROSS=1
+            export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
+            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot /usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+            export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+            export CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            export CXXFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu -I/opt/vcpkg/installed/arm64-linux/include -I/usr/aarch64-linux-gnu/include"
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target aarch64-unknown-linux-gnu --lib
+        - name: package
+          script: |
+            VERSION="${CNB_TAG_NAME}"
+            ARTIFACT_DIR="/tmp/release-artifacts"
+            mkdir -p "$ARTIFACT_DIR"
+            cp target/aarch64-unknown-linux-gnu/release/librustdesk.so \
+               "$ARTIFACT_DIR/rustdesk-${VERSION}-linux-arm64-lib.so" 2>/dev/null || true
+            ls -lh "$ARTIFACT_DIR/"
+        - name: upload-to-release
+          script: |
+            if [ -z "$(ls -A /tmp/release-artifacts/ 2>/dev/null)" ]; then
+              echo "[WARN] No artifacts found, skipping upload"
+              exit 0
+            fi
+            pip3 install requests -q 2>/dev/null || pip install requests -q 2>/dev/null
+            python3 scripts/upload_to_cnb.py \
+              --artifacts-dir /tmp/release-artifacts \
+              --ttl 180
+
+    - name: release-publish
+      stages:
+        - name: generate-changelog
+          image: cnbcool/changelog
+          settings:
+            latestChangeLogTarget: LATEST_CHANGELOG.md
+        - name: create-release
+          type: git:release
+          options:
+            title: $CNB_TAG_NAME
+            descriptionFromFile: LATEST_CHANGELOG.md
+            latest: true
