@@ -5,9 +5,73 @@
 #   - push to main: build Linux x86_64 + ARM64
 #   - tag push: build all platforms, create Release
 #   - pull_request: cargo check on Linux x86_64 (quick check)
+#   - web_trigger / api_trigger: manual trigger from UI or API
 # ============================================================================
 
 main:
+  # ---------- Manual Trigger (UI or API) ----------
+  web_trigger:
+    - name: manual-build-linux
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so /tmp/artifacts/ 2>/dev/null || true
+            ls -lh target/x86_64-unknown-linux-gnu/release/ 2>/dev/null || true
+
+  api_trigger:
+    - name: api-build-linux
+      runner:
+        cpus: 16
+      docker:
+        build:
+          dockerfile: ./docker/Dockerfile.cnb
+        volumes:
+          - /root/.cargo/registry:copy-on-write
+          - /root/.cargo/git:copy-on-write
+          - target:copy-on-write
+      stages:
+        - name: setup
+          script: |
+            rustup default stable
+            rustup target add x86_64-unknown-linux-gnu
+            export VCPKG_ROOT=/opt/vcpkg
+            $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
+        - name: build
+          timeout: 7200000
+          script: |
+            export VCPKG_ROOT=/opt/vcpkg
+            export CARGO_BUILD_JOBS=$(nproc)
+            export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)
+            cargo build --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu --lib
+        - name: artifacts
+          script: |
+            mkdir -p /tmp/artifacts
+            cp target/x86_64-unknown-linux-gnu/release/librustdesk.so /tmp/artifacts/ 2>/dev/null || true
+            ls -lh target/x86_64-unknown-linux-gnu/release/ 2>/dev/null || true
+
   # ---------- PR Check ----------
   pull_request:
     - name: pr-check
