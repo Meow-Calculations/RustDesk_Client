@@ -1,15 +1,10 @@
 # ============================================================================
 # RustDesk CNB Build Environment - Linux x86_64 Native
 # ============================================================================
-# Based on Debian Bullseye with all build dependencies pre-installed
-# Used for native Linux x86_64 compilation in CNB CI/CD
-# ============================================================================
-
 FROM debian:bullseye-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Install all required system dependencies
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     build-essential clang cmake curl git g++ gcc \
     libayatana-appindicator3-dev libasound2-dev \
@@ -26,29 +21,18 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     libssl-dev rpm dpkg-dev \
     wget xz-utils zip unzip \
     autoconf automake libtool \
-    ca-certificates sudo python3 pip3 \
+    ca-certificates sudo python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install CMake 3.30+
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v3.30.6/cmake-3.30.6-linux-x86_64.tar.gz \
-    && tar xzf cmake-3.30.6-linux-x86_64.tar.gz -C /usr/local --strip-components=1 \
-    && rm -f cmake-3.30.6-linux-x86_64.tar.gz
-
 # Install Rust
-ENV RUSTUP_HOME=/root/.rustup
-ENV CARGO_HOME=/root/.cargo
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add x86_64-unknown-linux-gnu
 
-# Install vcpkg
+# Install vcpkg (minimal, dependencies will be installed during build)
+RUN git clone --depth=1 https://github.com/microsoft/vcpkg /opt/vcpkg \
+    && /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN git clone --branch 2024.01.12 --depth=1 https://github.com/microsoft/vcpkg "${VCPKG_ROOT}" \
-    && "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
-
-# Parallel build environment variables
-ENV CARGO_BUILD_JOBS=-1
-ENV CMAKE_BUILD_PARALLEL_LEVEL=-1
 
 WORKDIR /workspace

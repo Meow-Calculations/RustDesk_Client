@@ -1,15 +1,10 @@
 # ============================================================================
 # RustDesk CNB Build Environment - Linux ARM64 Cross-Compilation
 # ============================================================================
-# Based on Debian Bullseye with ARM64 cross-compilation toolchain
-# Used for cross-compiling to aarch64-unknown-linux-gnu in CNB CI/CD
-# ============================================================================
-
 FROM debian:bullseye-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Add ARM64 architecture and install all dependencies
 RUN dpkg --add-architecture arm64 \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends \
@@ -17,7 +12,7 @@ RUN dpkg --add-architecture arm64 \
         gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
         libc6-dev-arm64-cross \
         libayatana-appindicator3-dev:arm64 libasound2-dev:arm64 \
-        libclang-dev libclang-11-dev \
+        libclang-dev \
         libglib2.0-dev libgraphene-1.0-dev \
         libcairo2-dev libpango1.0-dev libgdk-pixbuf2.0-dev \
         librsvg2-dev libepoxy-dev \
@@ -30,38 +25,23 @@ RUN dpkg --add-architecture arm64 \
         libssl-dev:arm64 rpm dpkg-dev \
         wget xz-utils zip unzip \
         autoconf automake libtool \
-        ca-certificates sudo python3 pip3 \
+        ca-certificates sudo python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install CMake 3.30+
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v3.30.6/cmake-3.30.6-linux-x86_64.tar.gz \
-    && tar xzf cmake-3.30.6-linux-x86_64.tar.gz -C /usr/local --strip-components=1 \
-    && rm -f cmake-3.30.6-linux-x86_64.tar.gz
-
 # Install Rust
-ENV RUSTUP_HOME=/root/.rustup
-ENV CARGO_HOME=/root/.cargo
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add aarch64-unknown-linux-gnu
 
-# Install vcpkg
+# Install vcpkg (minimal)
+RUN git clone --depth=1 https://github.com/microsoft/vcpkg /opt/vcpkg \
+    && /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN git clone --branch 2024.01.12 --depth=1 https://github.com/microsoft/vcpkg "${VCPKG_ROOT}" \
-    && "${VCPKG_ROOT}/bootstrap-vcpkg.sh" -disableMetrics
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
 
-# Cross-compilation environment variables
+# Cross-compilation defaults
 ENV PKG_CONFIG_ALLOW_CROSS=1
 ENV PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu
 ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-ENV CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
-ENV BINDGEN_EXTRA_CLANG_ARGS="--sysroot /usr/aarch64-linux-gnu -I/usr/aarch64-linux-gnu/include"
-
-# Parallel build environment variables
-ENV CARGO_BUILD_JOBS=-1
-ENV CMAKE_BUILD_PARALLEL_LEVEL=-1
 
 WORKDIR /workspace
