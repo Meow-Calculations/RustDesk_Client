@@ -175,7 +175,6 @@ master:
 
     - name: build-and-upload-linux-arm64
       runner:
-        tags: cnb:arch:arm64
         cpus: 16
       docker:
         build:
@@ -275,7 +274,6 @@ $:
 
     - name: release-linux-arm64
       runner:
-        tags: cnb:arch:arm64
         cpus: 32
       docker:
         build:
