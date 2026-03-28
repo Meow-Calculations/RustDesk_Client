@@ -2,13 +2,13 @@
 # RustDesk CNB Cloud Native Build CI/CD Pipeline
 # ============================================================================
 # Triggers:
-#   - push to main: build Linux x86_64 + ARM64, create Release draft
-#   - tag push: build all platforms, create Release + upload artifacts
-#   - pull_request: build Linux x86_64 only (quick check)
+#   - push to main: build Linux x86_64 + ARM64
+#   - tag push: build all platforms, create Release
+#   - pull_request: cargo check on Linux x86_64 (quick check)
 # ============================================================================
 
 main:
-  # ---------- PR Check: quick build on Linux x86_64 ----------
+  # ---------- PR Check ----------
   pull_request:
     - name: pr-check
       runner:
@@ -35,9 +35,9 @@ main:
             export CARGO_BUILD_JOBS=$(nproc)
             cargo check --features "hwcodec,unix-file-copy-paste" --release --target x86_64-unknown-linux-gnu
 
-  # ---------- Push to main: build Linux + draft release ----------
+  # ---------- Push to main: build Linux x86_64 + ARM64 ----------
   push:
-    build-linux-x86_64:
+    - name: build-linux-x86_64
       runner:
         cpus: 16
       docker:
@@ -65,12 +65,8 @@ main:
             mkdir -p /tmp/artifacts
             cp target/x86_64-unknown-linux-gnu/release/librustdesk.so /tmp/artifacts/ 2>/dev/null || true
             ls -lh /tmp/artifacts/ || echo "No artifacts to collect"
-          exports:
-            status: BUILD_LINUX_X64_STATUS
-        - name: cleanup-status
-          script: echo "Linux x86_64 build completed"
 
-    build-linux-arm64:
+    - name: build-linux-arm64
       runner:
         tags: cnb:arch:arm64
         cpus: 16
@@ -111,10 +107,8 @@ main:
             mkdir -p /tmp/artifacts
             cp target/aarch64-unknown-linux-gnu/release/librustdesk.so /tmp/artifacts/ 2>/dev/null || true
             ls -lh /tmp/artifacts/ || echo "No artifacts to collect"
-        - name: cleanup-status
-          script: echo "Linux ARM64 build completed"
 
-# ---------- Tag Push: full release build for all platforms ----------
+# ---------- Tag Push: full release build ----------
 $:
   tag_push:
     - name: release-build-linux-x86_64
@@ -135,6 +129,7 @@ $:
             export VCPKG_ROOT=/opt/vcpkg
             $VCPKG_ROOT/vcpkg install --triplet x64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
         - name: build
+          timeout: 7200000
           script: |
             export VCPKG_ROOT=/opt/vcpkg
             export CARGO_BUILD_JOBS=$(nproc)
@@ -147,9 +142,8 @@ $:
             mkdir -p "$ARTIFACT_DIR"
             cp target/x86_64-unknown-linux-gnu/release/librustdesk.so "$ARTIFACT_DIR/rustdesk-${VERSION}-linux-x86_64-lib.so" 2>/dev/null || true
             ls -lh "$ARTIFACT_DIR/"
-          timeout: 7200000
 
-    release-build-linux-arm64:
+    - name: release-build-linux-arm64
       runner:
         tags: cnb:arch:arm64
         cpus: 32
@@ -171,6 +165,7 @@ $:
             export VCPKG_ROOT=/opt/vcpkg
             $VCPKG_ROOT/vcpkg install --triplet arm64-linux --x-install-root=$VCPKG_ROOT/installed --overlay-ports=./res/vcpkg
         - name: build
+          timeout: 7200000
           script: |
             export VCPKG_ROOT=/opt/vcpkg
             export CARGO_BUILD_JOBS=$(nproc)
@@ -192,9 +187,8 @@ $:
             mkdir -p "$ARTIFACT_DIR"
             cp target/aarch64-unknown-linux-gnu/release/librustdesk.so "$ARTIFACT_DIR/rustdesk-${VERSION}-linux-arm64-lib.so" 2>/dev/null || true
             ls -lh "$ARTIFACT_DIR/"
-          timeout: 7200000
 
-    release-create:
+    - name: release-create
       stages:
         - name: generate-changelog
           image: cnbcool/changelog
