@@ -77,3 +77,7 @@ pub mod privacy_mode;
 pub mod virtual_display_manager;
 
 mod kcp_stream;
+
+/// SVD 智能虚拟屏管理与超级屏集成服务（远控会话级虚拟显示器生命周期管理）
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod svd_service;
