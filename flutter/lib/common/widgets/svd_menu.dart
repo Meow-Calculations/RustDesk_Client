@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../common.dart';
+import '../../consts.dart';
 import '../../models/model.dart';
 
 // ============================================================================
