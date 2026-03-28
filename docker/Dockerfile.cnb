@@ -29,10 +29,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add x86_64-unknown-linux-gnu
 
-# Install vcpkg (shallow clone + fetch pinned commit for vcpkg.json baseline)
+# Install vcpkg (full clone required: ports reference git tree objects not in shallow clones)
 RUN git clone --depth=1 https://github.com/microsoft/vcpkg /opt/vcpkg \
     && cd /opt/vcpkg \
-    && git fetch --depth=1 origin 120deac3062162151622ca4860575a33844ba10b \
+    && git fetch --unshallow \
     && git checkout 120deac3062162151622ca4860575a33844ba10b \
     && /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ENV VCPKG_ROOT=/opt/vcpkg
