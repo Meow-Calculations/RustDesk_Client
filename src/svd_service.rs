@@ -17,7 +17,8 @@
 use rawne::common::NetworkGrade;
 use rawne::svd::{ClientEdid, PhysicalScreenPower, SvdCommand, SvdEngine, VirtualDisplay};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use hbb_common::log;
+use hbb_common::tokio::sync::RwLock;
 
 // ---------------------------------------------------------------------------
 // 全局 SVD 引擎单例
