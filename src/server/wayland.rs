@@ -94,6 +94,12 @@ impl Clone for CapturerPtr {
     }
 }
 
+// 安全性说明: CapturerPtr 的线程安全由外层 RwLock<HashMap<...>> 保证，
+// 所有对裸指针的访问都在持锁状态下进行，不存在数据竞争风险。
+// 安全审计 C-04 引入 Arc<CapDisplayInfo> 后必须显式声明。
+unsafe impl Send for CapturerPtr {}
+unsafe impl Sync for CapturerPtr {}
+
 impl TraitCapturer for CapturerPtr {
     fn frame<'a>(&'a mut self, timeout: std::time::Duration) -> std::io::Result<Frame<'a>> {
         unsafe { (*self.0).frame(timeout) }

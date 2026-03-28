@@ -6,6 +6,9 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-flutter-nightly-build:
     uses: ./.github/workflows/flutter-build.yml
@@ -13,3 +16,4 @@ jobs:
     with:
       upload-artifact: true
       upload-tag: "nightly"
+
