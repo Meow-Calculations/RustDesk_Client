@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/toolbar.dart';
+import 'package:flutter_hbb/common/widgets/svd_menu.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -991,6 +992,19 @@ class _DisplayMenuState extends State<_DisplayMenu> {
             menuChildren: getVirtualDisplayMenuChildren(ffi, id, null),
             child: Text(translate("Virtual display")),
           ),
+        // RAWNE V2: SVD 超级屏模式子菜单
+        if (showSvdMenu(ffi))
+          _SubmenuButton(
+            ffi: widget.ffi,
+            menuChildren: getSvdMenuChildren(ffi, id, () => setState(() {})),
+            child: Row(
+              children: [
+                const Icon(Icons.desktop_windows, size: 14),
+                const SizedBox(width: 6),
+                Text(translate('Super Screen')),
+              ],
+            ),
+          ),
         if (ffi.connType == ConnType.defaultConn) cursorToggles(),
         Divider(),
         toggles(),
@@ -1023,6 +1037,16 @@ class _DisplayMenuState extends State<_DisplayMenu> {
                     .toList()),
           ]);
         }
+      }
+      // RAWNE V2: 隐私屏增强选项（屏幕水印 + 防截屏）
+      if (ffi.connType == ConnType.defaultConn &&
+          ffiModel.keyboard &&
+          pi.features.privacyMode &&
+          showSvdMenu(ffi)) {
+        menuChildren.addAll([
+          Divider(),
+          ...getSvdPrivacyEnhancedOptions(ffi, id),
+        ]);
       }
       if (ffi.connType == ConnType.defaultConn) {
         menuChildren.add(widget.pluginItem);

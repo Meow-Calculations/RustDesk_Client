@@ -1747,6 +1747,7 @@ class _DisplayState extends State<_Display> {
       codec(context),
       if (isDesktop) trackpadSpeed(context),
       if (!isWeb) privacyModeImpl(context),
+      if (isWindows) svdAdvanced(context),
       other(context),
     ]).marginOnly(bottom: _kListViewBottomMargin);
   }
@@ -1995,6 +1996,126 @@ class _DisplayState extends State<_Display> {
           ],
         ).marginOnly(left: _kCheckBoxLeftMargin),
         onTap: isOptFixed ? null : () => onChanged(!value));
+  }
+
+  /// RAWNE V2: 高级显示配置（超级屏 / 隐私屏增强）
+  Widget svdAdvanced(BuildContext context) {
+    // TODO(RAWNE): 对接 FFI bridge 读写实际配置值
+    // 目前使用本地 option 存储占位
+
+    // 默认启用超级屏
+    final svdEnabled =
+        bind.mainGetUserDefaultOption(key: 'svd-default-enabled') == 'Y';
+
+    // 默认刷新率
+    final defaultRefreshRate =
+        bind.mainGetUserDefaultOption(key: 'svd-default-refresh-rate');
+    final refreshRateGroupValue =
+        defaultRefreshRate.isEmpty ? '60' : defaultRefreshRate;
+
+    // 默认隐私屏策略
+    final defaultPrivacyStrategy =
+        bind.mainGetUserDefaultOption(key: 'svd-default-privacy-strategy');
+    final privacyGroupValue =
+        defaultPrivacyStrategy.isEmpty ? 'off' : defaultPrivacyStrategy;
+
+    return _Card(
+      title: 'Advanced Display (RAWNE)',
+      children: [
+        // 超级屏默认开关
+        GestureDetector(
+          child: Row(
+            children: [
+              Checkbox(
+                value: svdEnabled,
+                onChanged: (_) async {
+                  await bind.mainSetUserDefaultOption(
+                      key: 'svd-default-enabled',
+                      value: svdEnabled ? 'N' : 'Y');
+                  setState(() {});
+                },
+              ).marginOnly(right: 5),
+              Expanded(
+                child: Text(translate('Enable Super Screen by default')),
+              ),
+            ],
+          ).marginOnly(left: _kCheckBoxLeftMargin),
+          onTap: () async {
+            await bind.mainSetUserDefaultOption(
+                key: 'svd-default-enabled', value: svdEnabled ? 'N' : 'Y');
+            setState(() {});
+          },
+        ),
+
+        // 默认刷新率
+        const SizedBox(height: 8),
+        Text(
+          translate('Default Refresh Rate'),
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ).marginOnly(left: _kContentHMargin),
+        _Radio(context,
+            value: '60',
+            groupValue: refreshRateGroupValue,
+            label: '60 Hz',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-refresh-rate', value: value);
+          setState(() {});
+        }),
+        _Radio(context,
+            value: '120',
+            groupValue: refreshRateGroupValue,
+            label: '120 Hz',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-refresh-rate', value: value);
+          setState(() {});
+        }),
+        _Radio(context,
+            value: '144',
+            groupValue: refreshRateGroupValue,
+            label: '144 Hz',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-refresh-rate', value: value);
+          setState(() {});
+        }),
+
+        // 默认隐私屏策略
+        const SizedBox(height: 8),
+        Text(
+          translate('Default Privacy Screen Strategy'),
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ).marginOnly(left: _kContentHMargin),
+        _Radio(context,
+            value: 'off',
+            groupValue: privacyGroupValue,
+            label: 'Off',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-privacy-strategy', value: value);
+          setState(() {});
+        }),
+        _Radio(context,
+            value: 'basic',
+            groupValue: privacyGroupValue,
+            label: 'Basic Privacy Mode',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-privacy-strategy', value: value);
+          setState(() {});
+        }),
+        _Radio(context,
+            value: 'enhanced',
+            groupValue: privacyGroupValue,
+            label: 'Enhanced + Watermark',
+            onChanged: (value) async {
+          await bind.mainSetUserDefaultOption(
+              key: 'svd-default-privacy-strategy', value: value);
+          setState(() {});
+        }),
+      ],
+    );
   }
 
   Widget other(BuildContext context) {

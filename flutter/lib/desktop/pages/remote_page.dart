@@ -22,6 +22,7 @@ import '../../utils/image.dart';
 import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
+import '../widgets/sdwan_indicator.dart';
 
 import 'package:flutter_hbb/native/custom_cursor.dart'
     if (dart.library.html) 'package:flutter_hbb/web/custom_cursor.dart';
@@ -622,6 +623,15 @@ class _RemotePageState extends State<RemotePage>
         right: 10,
         child: _buildRawTouchAndPointerRegion(
             QualityMonitor(_ffi.qualityMonitorModel), null, null),
+      ),
+    );
+    // RAWNE V2: SD-WAN 链路质量指示器（Quality Monitor 下方）
+    paints.add(
+      Positioned(
+        top: 46,
+        right: 10,
+        child: _buildRawTouchAndPointerRegion(
+            SdWanIndicator(ffi: _ffi), null, null),
       ),
     );
     return Stack(
