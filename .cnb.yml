@@ -8,7 +8,7 @@
 #   - web_trigger / api_trigger: manual trigger from UI or API
 # ============================================================================
 
-main:
+master:
   # ---------- Manual Trigger (UI or API) ----------
   web_trigger:
     - name: manual-build-linux
